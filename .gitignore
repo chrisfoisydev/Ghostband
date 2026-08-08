@@ -1,0 +1,26 @@
+# Build output
+build/
+build-*/
+cmake-build-*/
+_deps/
+
+# Model weights and MRT2 resources are NEVER committed.
+# They are CC-BY-4.0 artifacts the user fetches themselves via `mrt models download`.
+# See THIRD_PARTY_NOTICES.md §2.
+*.mlxfn/
+models/
+resources/
+*.safetensors
+*.tflite
+
+# Recorded audio / captured performances
+*.wav
+*.aiff
+*.flac
+
+# Editor / OS
+.DS_Store
+.vscode/
+.idea/
+*.swp
+compile_commands.json
