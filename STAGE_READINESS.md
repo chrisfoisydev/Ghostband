@@ -13,15 +13,15 @@ Legend: ✅ verified by execution · ⚠️ implemented but unverified · ❌ no
 
 | # | Criterion | Status | Evidence / blocker |
 |---|---|---|---|
-| 1 | App launches reliably | 🚫 | JUCE host never compiled (Linux dev box) |
-| 2 | MRT2 Small loads reliably | 🟡 | loads and generates music via upstream `hello_mrt2`; **not yet inside Follow** |
-| 3 | Continuous streaming works | 🚫 | `RealtimeRunner` never exercised; throughput unmeasured |
+| 1 | App launches reliably | 🟡 | launches and runs; "reliably" needs repetition + soak |
+| 2 | MRT2 Small loads reliably | 🟡 | loads inside Follow (once); repetition untested |
+| 3 | Continuous streaming works | 🟡 | `RealtimeRunner` streams, buffer stays full, **17.17/40 ms**; audible output not yet heard, no soak |
 | 4 | MIDI chords steer generated harmony | ❌ | Phase 1; MRT2 API verified, not wired |
 | 5 | Section changes work | ❌ | Phase 2 |
 | 6 | MIDI footswitch control works | ❌ | Phase 2 |
-| 7 | AI mute works | ⚠️ | `AiOutputStage` mute fade **tested**; not wired to a UI |
-| 8 | **PANIC always works** | ⚠️ | fade logic **tested** (20–50 ms, click-free); not wired to UI/MIDI |
-| 9 | No persistent audio glitches | 🚫 | unmeasured |
+| 7 | AI mute works | ⚠️ | mute fade **unit-tested** and wired to AI BAND; not yet confirmed audibly |
+| 8 | **PANIC always works** | ⚠️ | fade **unit-tested**; wired to button + Escape; app reports 32.0 ms latency; not yet confirmed audibly |
+| 9 | No persistent audio glitches | 🚫 | first run showed 2373 underruns from a policy bug (fixed, unverified) |
 | 10 | No serious memory leak over 60 min | 🚫 | soak test not run |
 | 11 | Audio device reconnect handled gracefully | ❌ | Phase 4 |
 | 12 | Model errors do not crash the app | ⚠️ | `EngineState` error path **tested**; real MRT2 errors unobserved |
@@ -31,13 +31,14 @@ Legend: ✅ verified by execution · ⚠️ implemented but unverified · ❌ no
 | 16 | Generated band stays instrumental where practical | ❌ | prompt policy only; unverified |
 | 17 | **No feature claims something that isn't implemented** | ✅ | enforced by `CLAUDE.md` rule 2; this file is the audit |
 
-**Score: 1 / 17 verified, 1 partial.** Criterion 17 is still the only one that can be
-honestly ticked, and ticking it is what makes the other sixteen trustworthy.
+**Score: 1 / 17 fully verified, 5 partial.** Criterion 17 is still the only one that can
+be honestly ticked outright, and ticking it is what makes the other sixteen trustworthy.
 
-MRT2 is now proven to generate music on the target Mac (criterion 2, partial). That is a
-real milestone — but it was proven via *upstream's* example, not through Follow. Nothing
-in `src/backend/` or `src/app/` has yet been compiled, so no criterion moves to ✅ on the
-strength of it.
+Phase 0's engineering goal is met — MRT2 streams inside Follow at 17.17 ms against a
+40 ms budget, ~2.3x real time. But **no one has yet heard audio come out of Follow.** The
+first run was muted by an underrun-policy bug that counted the idle period between LOAD
+and START as failure. That is fixed and unit-tested; the fix has not been run on hardware.
+Until someone hears it, criteria 3, 7 and 8 stay partial.
 
 ---
 

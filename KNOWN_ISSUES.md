@@ -5,38 +5,35 @@ is absent or labelled, per `CLAUDE.md` rule 2.
 
 ---
 
-## 1. 🚫 BLOCKER — MRT2 and the JUCE host have never been compiled or run
+## 1. ⚠️ The MRT2 and JUCE layers cannot be built or tested in CI
 
-**Severity: highest. Blocks every acceptance criterion in `STAGE_READINESS.md`.**
+**Severity: moderate and structural. This is a permanent property of the project, not a
+temporary state.**
 
 The development environment is Linux x86-64. MRT2's C++ engine is macOS/Apple-Silicon
 only by explicit upstream design (`message(FATAL_ERROR)` on `NOT APPLE`; links
 MLX/Metal/Accelerate/Foundation; requires an Objective-C++ toolchain). JUCE's Linux
 audio/GUI dependencies (ALSA, freetype) are also absent here.
 
-Status after the first build on target hardware (2026-08-09):
+**Closed on target hardware (2026-08-09):**
 
-- ✅ `hello_mrt2` — **built and run.** `mrt2_small` generates coherent instrumental music;
-  output is a valid 4.00 s 48 kHz stereo WAV. MRT2 itself is proven on this machine.
-- `src/backend/Mrt2Backend.{h,cpp}` — written against pinned upstream headers,
-  **still never compiled**.
-- `src/app/` (JUCE host) — written, **still never compiled**.
-- **Real-time throughput — still unverified.** This is the important one. `hello_mrt2`
-  renders offline and reports no timing, so "generates faster than playback" has *not*
-  been demonstrated. It needs `EngineMetrics::total_ms` measured against the 40 ms frame
-  budget, which needs the Follow app running.
-- `RealtimeRunner` — **never exercised.** `hello_mrt2` calls `MLXEngine::generate_frame`
-  directly; Follow uses the runner's inference thread and ring buffers. Different path,
-  independent risk.
-- Latency, CPU/GPU load, memory growth — **unmeasured**.
+- ✅ `hello_mrt2` built and run; `mrt2_small` generates coherent instrumental music as a
+  valid 4.00 s 48 kHz stereo WAV.
+- ✅ `Mrt2Backend` and the JUCE host **compile and run**. `Follow.app` opens a 48 kHz
+  device at 512 samples, loads `mrt2_small`, and streams through `RealtimeRunner`.
+- ✅ **Real-time throughput confirmed: 17.17 ms per 40 ms frame (42.9% of budget)** —
+  roughly 2.3x faster than playback, with the generation buffer holding 3328/3840 samples.
 
-**What *is* verified:** `follow::core` and `NullBackend` build with `-Wall -Wextra` and
-pass their unit tests on this machine. That covers PANIC, the limiter, the underrun
-policy, the engine state machine, diagnostics, and logging.
+**Still open:**
 
-**Resolution:** run the commands in `IMPLEMENTATION_PLAN.md` §"To close it" on an Apple
-Silicon Mac. Expect compile errors in `Mrt2Backend` on first attempt — it is adapter code
-written without a compiler.
+- ❌ **Audible output from Follow has not been heard** — the first run was silenced by the
+  bug in §10. Fixed and unit-tested, not yet re-run.
+- ❌ Memory growth, long-run stability, device reconnect — unmeasured.
+
+**Structural consequence:** every change to `src/backend/` or `src/app/` is unverified
+until someone builds on a Mac. CI can only ever cover `follow::core`. This is why the
+safety-critical logic lives there — it is the part that can be regression-tested on every
+commit.
 
 ---
 
@@ -119,3 +116,42 @@ multihot", which understates it. Follow clamps incoming MIDI to 0–127 and rese
 `THIRD_PARTY_NOTICES.md` records what the licences say. It is not legal advice, and the
 CC-BY-4.0 weights plus JUCE's licensing model both carry real commercial-distribution
 questions flagged there for human/legal review before any release.
+
+---
+
+## 10. ✅ FIXED — underrun policy muted the AI before generation ever started
+
+**Found on the first real hardware run (2026-08-09). Severity was high: the AI never
+produced audible output.**
+
+**Symptom:** diagnostics showed generation healthy — frame time 17.17 ms against a 40 ms
+budget, generation buffer 3328/3840 — yet 2373 audio underruns, `Health: Degraded`, and
+output pinned at −120 dBFS. Silence.
+
+**Cause:** the audio callback runs from app launch. Between LOAD MODEL and START, the
+backend is a loaded-but-not-generating `RealtimeRunner`, so `readStereo()` correctly
+returns `false` on every block. `SafetyMonitor` counted each as a fault, crossed its
+threshold within ~2 s, and latched `Degraded` — muting the band *before the performer
+ever pressed START*. The 2373 count matched MRT2's own `dropped_frames` exactly, which
+confirmed both were observing the same (expected) empty-buffer condition.
+
+The logic error was treating "buffer empty" as a fault unconditionally. When generation
+is not running, an empty buffer is the expected state.
+
+**Fix:**
+- `SafetyMonitor::setGenerating(bool)` — underruns are only policed while generation is
+  meant to be producing audio. Wired to start/stop in `FollowAudioEngine`.
+- A **priming grace window** (default 1 s) on the rising edge, because even a healthy
+  engine underruns while the ring buffer fills. Absorbed underruns are still counted and
+  surfaced via `primingUnderruns()` so a struggling start stays visible.
+- `recover()` re-arms the grace, so recovering into an empty buffer cannot instantly
+  re-trip.
+- Added a **RECOVER AI** control. `Degraded` latches by design, but the UI previously
+  offered no way out and the warning text wrongly suggested PANIC would clear it — a dead
+  end.
+
+**Covered by five new tests**, including the exact observed scenario (5000 underrunning
+blocks while stopped must not trip Degraded).
+
+**Status: fixed and unit-tested; NOT yet re-run on hardware.** Until someone hears audio
+from Follow, criteria 3, 7 and 8 in `STAGE_READINESS.md` stay partial.

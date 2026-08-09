@@ -37,6 +37,13 @@ void fillSine(std::vector<float>& l, std::vector<float>& r, double amplitude, do
     }
 }
 
+// Helper: put a monitor into the steady generating state, past its priming grace.
+void makeGenerating(SafetyMonitor& mon) {
+    mon.setGenerating(true);
+    // Burn off the grace window with clean blocks.
+    for (int i = 0; i < 500; ++i) mon.reportBlock(512, false);
+}
+
 float maxAbs(const std::vector<float>& v) {
     float m = 0.0f;
     for (float x : v) m = std::max(m, std::fabs(x));
@@ -244,10 +251,88 @@ TEST("dB conversions round-trip and floor at -120") {
 // SafetyMonitor — underrun policy
 // ---------------------------------------------------------------------------
 
+TEST("underruns are IGNORED while generation is stopped") {
+    // The bug this exists to prevent: between LOAD MODEL and START, the backend's ring
+    // buffer is legitimately empty and readStereo() returns false on every block. Counting
+    // those latched Degraded and muted the AI *before the performer ever pressed START* —
+    // observed on real hardware as 2373 underruns accrued while the app sat at Ready.
+    SafetyMonitor mon;
+    mon.prepare(kSr);
+    mon.setPolicy(8, 2.0);
+
+    for (int i = 0; i < 5000; ++i) mon.reportBlock(512, true);
+
+    CHECK(mon.health() == Health::Healthy);
+    CHECK(!mon.shouldMuteAi());
+    CHECK_EQ(mon.totalUnderruns(), 0u);
+}
+
+TEST("a priming grace window absorbs start-up underruns") {
+    // Even a healthy engine underruns for the first frames while the ring buffer fills.
+    SafetyMonitor mon;
+    mon.prepare(kSr);
+    mon.setPolicy(8, 2.0);
+    mon.setPrimingGraceSeconds(1.0);
+    mon.setGenerating(true);
+
+    CHECK(mon.isPriming());
+    for (int i = 0; i < 20; ++i) mon.reportBlock(512, true);
+
+    CHECK(mon.health() == Health::Healthy);
+    CHECK(!mon.shouldMuteAi());
+    CHECK(mon.primingUnderruns() > 0u); // absorbed, but still visible in diagnostics
+}
+
+TEST("after priming, sustained underruns still trip Degraded") {
+    // The grace window must not become a permanent excuse.
+    SafetyMonitor mon;
+    mon.prepare(kSr);
+    mon.setPolicy(8, 2.0);
+    mon.setPrimingGraceSeconds(1.0);
+    makeGenerating(mon);
+    CHECK(!mon.isPriming());
+
+    for (int i = 0; i < 8; ++i) mon.reportBlock(512, true);
+    CHECK(mon.health() == Health::Degraded);
+    CHECK(mon.shouldMuteAi());
+}
+
+TEST("stopping generation cannot manufacture a fault") {
+    SafetyMonitor mon;
+    mon.prepare(kSr);
+    mon.setPolicy(8, 2.0);
+    makeGenerating(mon);
+
+    mon.setGenerating(false);
+    for (int i = 0; i < 5000; ++i) mon.reportBlock(512, true);
+
+    CHECK(mon.health() == Health::Healthy);
+    CHECK(!mon.shouldMuteAi());
+}
+
+TEST("recovery re-arms the priming grace") {
+    // After recovering, the buffer may be empty again; re-tripping instantly on the
+    // refill would make the RECOVER control useless.
+    SafetyMonitor mon;
+    mon.prepare(kSr);
+    mon.setPolicy(4, 2.0);
+    mon.setPrimingGraceSeconds(1.0);
+    makeGenerating(mon);
+
+    for (int i = 0; i < 4; ++i) mon.reportBlock(512, true);
+    CHECK(mon.shouldMuteAi());
+
+    mon.recover();
+    CHECK(mon.isPriming());
+    for (int i = 0; i < 20; ++i) mon.reportBlock(512, true);
+    CHECK(!mon.shouldMuteAi());
+}
+
 TEST("isolated underruns are a warning, not a shutdown") {
     SafetyMonitor mon;
     mon.prepare(kSr);
     mon.setPolicy(8, 2.0);
+    makeGenerating(mon);
 
     mon.reportBlock(128, true);
     CHECK(mon.health() == Health::Warning);
@@ -258,6 +343,7 @@ TEST("sustained underruns trip Degraded and mute the AI") {
     SafetyMonitor mon;
     mon.prepare(kSr);
     mon.setPolicy(8, 2.0);
+    makeGenerating(mon);
 
     for (int i = 0; i < 8; ++i) mon.reportBlock(128, true);
 
@@ -273,6 +359,7 @@ TEST("Degraded latches — it never clears itself") {
     SafetyMonitor mon;
     mon.prepare(kSr);
     mon.setPolicy(4, 1.0);
+    makeGenerating(mon);
 
     for (int i = 0; i < 4; ++i) mon.reportBlock(128, true);
     CHECK(mon.shouldMuteAi());
@@ -292,6 +379,7 @@ TEST("underruns spread thinly across windows never trip Degraded") {
     SafetyMonitor mon;
     mon.prepare(kSr);
     mon.setPolicy(8, 1.0);
+    makeGenerating(mon);
 
     for (int window = 0; window < 20; ++window) {
         mon.reportBlock(128, true);
@@ -307,6 +395,7 @@ TEST("a clean window clears Warning but never clears Degraded") {
     SafetyMonitor mon;
     mon.prepare(kSr);
     mon.setPolicy(8, 1.0);
+    makeGenerating(mon);
 
     mon.reportBlock(128, true);
     CHECK(mon.health() == Health::Warning);
@@ -421,6 +510,8 @@ TEST("sustained underruns fade the AI out automatically") {
     stage.prepare(kSr, 1024);
     stage.setMuted(false);
     stage.safetyMonitor().setPolicy(4, 2.0);
+    stage.safetyMonitor().setPrimingGraceSeconds(0.0);
+    stage.setGenerating(true);
 
     std::vector<float> l(512), r(512);
     fillConstant(l, r, 0.5f);

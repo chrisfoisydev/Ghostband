@@ -58,6 +58,11 @@ MainComponent::MainComponent() {
         refreshStatus();
     };
 
+    addChildComponent(recover_button_);  // shown only while Degraded
+    recover_button_.setColour(juce::TextButton::buttonColourId, kWarn);
+    recover_button_.setColour(juce::TextButton::textColourOffId, juce::Colours::black);
+    recover_button_.onClick = [this] { engine_.recoverFromDegraded(); refreshStatus(); };
+
     addAndMakeVisible(ai_band_toggle_);
     ai_band_toggle_.setColour(juce::ToggleButton::textColourId, kText);
     ai_band_toggle_.onClick = [this] { engine_.setAiBandOn(ai_band_toggle_.getToggleState()); };
@@ -189,9 +194,11 @@ void MainComponent::refreshStatus() {
 
     juce::String warning = engine_.sampleRateWarning();
     if (state == core::EngineState::Error) warning = engine_.engineError();
-    if (engine_.health() == core::Health::Degraded) {
-        warning = "AI muted: sustained audio underruns. Press PANIC to release once stable.";
+    const bool degraded = engine_.health() == core::Health::Degraded;
+    if (degraded) {
+        warning = "AI muted: sustained audio underruns. Press RECOVER AI when stable.";
     }
+    recover_button_.setVisible(degraded);
     warning_label_.setText(warning, juce::dontSendNotification);
 
     // The numbers this spike exists to produce. Anything unmeasured says so explicitly
@@ -266,6 +273,7 @@ void MainComponent::resized() {
     stop_button_.setBounds(buttons.removeFromLeft(100).reduced(2));
     ai_band_toggle_.setBounds(buttons.removeFromLeft(120).reduced(2));
     panic_button_.setBounds(buttons.removeFromRight(180).reduced(2));
+    recover_button_.setBounds(buttons.removeFromRight(130).reduced(2));
 
     area.removeFromTop(12);
     prompt_editor_.setBounds(area.removeFromTop(60));

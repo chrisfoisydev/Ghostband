@@ -22,12 +22,12 @@ application.* Not "the UI exists."
 | 0.7 | Repository + CMake setup | ✅ done |
 | 0.8 | Portable `follow::core`: state machine, fade, limiter, safety monitor, diagnostics, logging | ✅ done, **tested and passing** |
 | 0.9 | `IGenerationBackend` abstraction + `NullBackend` | ✅ done, tested |
-| 0.10 | `Mrt2Backend` wrapping `magentart::core::RealtimeRunner` | ⚠️ written, **never compiled** (needs macOS) |
-| 0.11 | JUCE host: audio device, 48 kHz stereo out, START/STOP/PANIC, diagnostics | ⚠️ written, **never compiled** (needs macOS) |
+| 0.10 | `Mrt2Backend` wrapping `magentart::core::RealtimeRunner` | ✅ **compiles and runs** — loads `mrt2_small`, streams via `RealtimeRunner` |
+| 0.11 | JUCE host: audio device, 48 kHz stereo out, START/STOP/PANIC, diagnostics | ✅ **builds and runs** — `Follow.app`, 48 kHz/512, diagnostics live |
 | 0.12 | Build + run official `hello_mrt2` | ✅ **done on target hardware** (2026-08-09) |
-| 0.13 | Confirm inference with `mrt2_small` | 🟡 **partial** — model loads and generates valid music; real-time *throughput* not yet measured |
+| 0.13 | Confirm real-time inference with `mrt2_small` | ✅ **done** — **17.17 ms per 40 ms frame (42.9% of budget)** inside Follow, on an M-series MacBook Pro |
 | 0.14 | Verify 48 kHz stereo output from a generated file | ✅ **done** — `out.wav`, 4.00 s, plays correctly as music |
-| 0.15 | Measure generation latency, underruns, CPU/GPU, memory | ❌ not started — needs the Follow app (0.11) |
+| 0.15 | Measure generation latency, underruns, CPU/GPU, memory | 🟡 **partial** — frame time and underruns measured; memory still unmeasured |
 
 ### Setup gotchas found on the first real build (2026-08-09)
 

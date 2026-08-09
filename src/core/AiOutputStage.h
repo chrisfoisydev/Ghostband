@@ -104,6 +104,12 @@ public:
     /// else (panic, mute) is holding it closed.
     void recoverFromDegraded() noexcept;
 
+    /// Tell the safety stage whether generation is supposed to be producing audio.
+    /// Must be called on every start/stop: when generation is stopped, an empty backend
+    /// buffer is expected rather than a fault, and policing it as a fault will latch the
+    /// AI to silence. See SafetyMonitor::setGenerating.
+    void setGenerating(bool generating) noexcept { monitor_.setGenerating(generating); }
+
 private:
     void updateFadeTarget() noexcept;
 

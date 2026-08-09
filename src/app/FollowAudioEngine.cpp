@@ -195,10 +195,17 @@ void FollowAudioEngine::loadModelAsync(const juce::File& resourceDir,
 void FollowAudioEngine::startGeneration() {
     if (!state_.transitionTo(core::EngineState::Running)) return;
     backend_->start();
+    // Order matters: arm the monitor only after the backend is actually running, so the
+    // priming grace window starts from the moment audio can genuinely appear.
+    output_stage_.setGenerating(true);
 }
 
 void FollowAudioEngine::stopGeneration() {
     if (!state_.transitionTo(core::EngineState::Ready)) return;
+    // Disarm FIRST. Once stopped, the backend's ring buffer drains and readStereo()
+    // correctly reports underruns on every block; policing those would latch Degraded
+    // while the engine is merely idle.
+    output_stage_.setGenerating(false);
     backend_->stop();
     backend_->allNotesOff();
 }

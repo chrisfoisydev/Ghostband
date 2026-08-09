@@ -18,17 +18,21 @@ This is **not** playing along to backing tracks.
 | ✅ Architecture and plan | [`ARCHITECTURE.md`](ARCHITECTURE.md) · [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION_PLAN.md) |
 | ✅ Portable safety core — **built and tested** (PANIC, limiter, underrun policy, state machine) | `src/core/`, `tests/` |
 | ✅ MRT2 proven on target hardware — `mrt2_small` generates 48 kHz stereo music | via upstream `hello_mrt2` |
-| ⚠️ MRT2 backend adapter — **written, never compiled** | `src/backend/Mrt2Backend.*` |
-| ⚠️ JUCE host — **written, never compiled** | `src/app/` |
-| 🚫 Real-time throughput measured | not yet — needs the app running |
+| ✅ MRT2 backend + JUCE host — **build and run**; Follow streams MRT2 audio | `src/backend/`, `src/app/` |
+| ✅ **Real-time confirmed — 17.17 ms per 40 ms frame (42.9%)** on an M-series MacBook Pro | measured in-app |
 
-**Read [`KNOWN_ISSUES.md`](KNOWN_ISSUES.md) §1 before trusting anything here.** This
-repository was developed on Linux x86-64, where MRT2's C++ engine refuses to build by
-upstream design. The safety-critical logic was therefore built dependency-free so it
-*could* be tested; the MRT2 and JUCE layers have not been through a compiler.
+**Phase 0's goal is met: MRT2 generates real-time audio inside Follow.** Generation runs
+at 17.17 ms against a 40 ms frame budget, so the model produces audio ~2.3x faster than it
+plays back.
 
-Nothing is on stage until [`STAGE_READINESS.md`](STAGE_READINESS.md) says so. It
-currently reports **1 of 17** acceptance criteria verified.
+Not yet confirmed: **audible output through the full stage has not been heard.** The first
+run was silenced by an underrun-policy bug (now fixed, see `KNOWN_ISSUES.md` §10) and the
+fix has not been re-run on hardware. Nothing has been soak-tested.
+
+This repository is developed in a Linux x86-64 container where MRT2 cannot build at all;
+the app is compiled and run separately on an Apple Silicon Mac. Nothing is on stage until
+[`STAGE_READINESS.md`](STAGE_READINESS.md) says so — it currently reports **1 of 17**
+acceptance criteria fully verified.
 
 ---
 
@@ -72,9 +76,6 @@ cmake --build build -j
 
 Budget **~25 GB free disk** and about an hour for a cold setup: TFLite clones the entire
 TensorFlow repository, and configure alone took 649 s on an M-series MacBook Pro.
-
-Expect compile errors in `Mrt2Backend` on the first attempt — it is adapter code written
-without a compiler available.
 
 ---
 
