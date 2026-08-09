@@ -8,6 +8,7 @@
 #include "core/AiOutputStage.h"
 #include "core/EngineState.h"
 #include "core/IGenerationBackend.h"
+#include "core/IntensityMacro.h"
 #include "core/MidiHarmonyState.h"
 
 #include <juce_audio_devices/juce_audio_devices.h>
@@ -57,7 +58,16 @@ public:
     void setOutputLevelDb(float db) { output_stage_.setOutputLevelDb(db); }
     float outputLevelDb() const noexcept { return output_stage_.outputLevelDb(); }
 
+    /// Encodes THREE slots — sparse / base / full density variants of this prompt — so
+    /// that intensity afterwards costs only a blend-weight write. Encoding per knob
+    /// movement would stall on MusicCoCa mid-performance.
     void setTextPrompt(const juce::String& prompt);
+
+    /// **How much the band plays.** Distinct from AI Output Level, which is how loud.
+    void setAiIntensity(float intensity);
+    float aiIntensity() const noexcept { return intensity_.intensity(); }
+    int aiIntensityPercent() const noexcept { return intensity_.percent(); }
+    core::IntensityParams intensityParams() const noexcept { return intensity_.compute(); }
     /// @}
 
     /// @name Harmony (Phase 1)
@@ -137,6 +147,8 @@ private:
     std::unique_ptr<juce::ThreadPool> load_pool_;
 
     core::MidiHarmonyState harmony_;
+    core::IntensityMacro intensity_;
+    juce::String base_prompt_;
     juce::StringArray open_midi_inputs_;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(GhostBandAudioEngine)

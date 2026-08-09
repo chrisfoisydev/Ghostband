@@ -52,9 +52,25 @@ intensity onto prompt blend weights, `set_drumless`, `set_cfg_drums`,
 `set_cfg_musiccoca`, and `temperature`. Those choices follow from the parameters'
 documented semantics, but **no one has listened to the result**.
 
-**Impact:** the headline performance macro may feel wrong — non-monotonic, or bunched at
-one end. **Mitigation:** the mapping is isolated in one class with no other
-responsibilities, so retuning is local. Must be evaluated on real audio before Phase 2.
+**Impact:** the headline performance macro may feel wrong — bunched at one end, or too
+subtle to be worth a knob. **Mitigation:** every constant lives in `IntensityMacro::Tuning`,
+so retuning is editing data rather than rewriting logic.
+
+**Now implemented and unit-tested** (`IntensityMacro`, 2026-08-09). The tests guarantee the
+properties that can be checked without ears: monotonic in every continuous parameter,
+prompt weights bounded and always summing to 1, drumless hysteresis that cannot flap, all
+values inside sane bounds, and — the two hard rules — it never touches `cfg_notes` or any
+gain.
+
+**They cannot tell us whether it sounds right.** Specifically unknown until played:
+1. Is the perceived change roughly even across the range, or does everything happen in the
+   last 20%?
+2. Is intensity 0 too sparse to be musically useful, or a good "almost nothing" setting?
+3. Does the drumless threshold at 0.13/0.17 land somewhere musical?
+4. Are the sparse/full prompt suffixes actually the strongest available lever, as assumed?
+
+Evaluate before Phase 2: section presets bake intensity values in, so a bad curve would
+propagate into every song.
 
 ---
 

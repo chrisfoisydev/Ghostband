@@ -65,6 +65,11 @@ private:
     juce::Slider level_slider_;
     juce::Label level_label_;
 
+    /// AI INTENSITY — how much the band plays. Kept visually adjacent to, but clearly
+    /// distinct from, AI OUTPUT LEVEL; the brief forbids conflating them.
+    juce::Slider intensity_slider_;
+    juce::Label intensity_label_;
+
     /// On-screen keyboard, playable with the mouse or the computer keys (A/W/S/E/D...).
     /// It is a genuine MIDI source, not a simulation: notes go through the same
     /// MidiHarmonyState a hardware controller uses, so testing here exercises the real

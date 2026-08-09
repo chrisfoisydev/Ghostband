@@ -91,6 +91,18 @@ MainComponent::MainComponent() {
         engine_.setOutputLevelDb(static_cast<float>(level_slider_.getValue()));
     };
 
+    addAndMakeVisible(intensity_label_);
+    intensity_label_.setText("AI INTENSITY", juce::dontSendNotification);
+    intensity_label_.setColour(juce::Label::textColourId, kDim);
+
+    addAndMakeVisible(intensity_slider_);
+    intensity_slider_.setRange(0.0, 100.0, 1.0);
+    intensity_slider_.setValue(50.0, juce::dontSendNotification);
+    intensity_slider_.setTextValueSuffix(" %");
+    intensity_slider_.onValueChange = [this] {
+        engine_.setAiIntensity(static_cast<float>(intensity_slider_.getValue() / 100.0));
+    };
+
     keyboard_ = std::make_unique<juce::MidiKeyboardComponent>(
         keyboard_state_, juce::MidiKeyboardComponent::horizontalKeyboard);
     keyboard_->setAvailableRange(36, 84);          // C2..C6, enough for chord work
@@ -140,7 +152,7 @@ MainComponent::MainComponent() {
     // that moment is skipped by its null guard — permanently, because the size never
     // changes again afterwards. Sizing first left the on-screen keyboard and the audio
     // device selector laid out at zero size and therefore invisible.
-    setSize(880, 800);
+    setSize(880, 860);
 }
 
 MainComponent::~MainComponent() {
@@ -212,6 +224,8 @@ void MainComponent::refreshStatus() {
     const auto snap = engine_.diagnostics();
     const auto state = engine_.engineState();
 
+    const auto ip = engine_.intensityParams();
+
     // Detected harmony. Display only — MRT2 is steered by the raw notes, never by this
     // label, so a naming miss can never become a wrong chord.
     const auto sounding = engine_.harmony().soundingNotes();
@@ -282,6 +296,15 @@ void MainComponent::refreshStatus() {
       << "MIDI                  " << (engine_.anyMidiDeviceConnected()
                                         ? engine_.midiInputNames().joinIntoString(", ")
                                         : juce::String("no device (use the on-screen keyboard)")) << "\n"
+      << "AI intensity          " << juce::String(engine_.aiIntensityPercent()) << " %\n"
+      << "  drums               " << (ip.drumless ? "removed (drumless)"
+                                        : juce::String("cfg ") + juce::String(ip.cfgDrums, 2)) << "\n"
+      << "  style guidance      " << juce::String(ip.cfgMusicCoca, 2) << "\n"
+      << "  temperature         " << juce::String(ip.temperature, 2) << "\n"
+      << "  prompt blend        sparse " << juce::String(ip.promptWeights[0], 2)
+                                  << " / base " << juce::String(ip.promptWeights[1], 2)
+                                  << " / full " << juce::String(ip.promptWeights[2], 2) << "\n"
+      << "\n"
       << "Sounding notes        " << juce::String(engine_.harmony().soundingCount())
                                   << "   " << juce::String(chord_notes) << "\n"
       << "Memory                " << juce::String(snap.memoryUsageGb, 2) << " GB\n";
@@ -356,6 +379,11 @@ void MainComponent::resized() {
     prompt_editor_.setBounds(area.removeFromTop(60));
 
     area.removeFromTop(8);
+    auto intensity_row = area.removeFromTop(28);
+    intensity_label_.setBounds(intensity_row.removeFromLeft(150));
+    intensity_slider_.setBounds(intensity_row);
+
+    area.removeFromTop(4);
     auto level_row = area.removeFromTop(28);
     level_label_.setBounds(level_row.removeFromLeft(150));
     level_slider_.setBounds(level_row);

@@ -287,7 +287,24 @@ void GhostBandAudioEngine::clearPanic() {
 }
 
 void GhostBandAudioEngine::setTextPrompt(const juce::String& prompt) {
-    backend_->setTextPrompt(prompt.toStdString());
+    base_prompt_ = prompt;
+
+    // Encode all three density variants at once. This is the async MusicCoCa pass, and
+    // paying it here — on a prompt edit — is what keeps the intensity knob instant later.
+    const auto variants = intensity_.promptVariants(prompt.toStdString());
+    const auto params = intensity_.compute();
+    const std::vector<float> weights(params.promptWeights.begin(), params.promptWeights.end());
+
+    backend_->setTextPrompts(variants, weights);
+    Logger::instance().info(LogCategory::Generation, "prompt set",
+                            {{"variants", std::to_string(variants.size())}});
+}
+
+void GhostBandAudioEngine::setAiIntensity(float intensity) {
+    intensity_.setIntensity(intensity);
+    // Blend weights and sampling parameters only — all atomic, no re-encode, so this is
+    // safe to move continuously while the band is playing.
+    intensity_.applyTo(*backend_);
 }
 
 core::PromptStatus GhostBandAudioEngine::promptStatus() const {

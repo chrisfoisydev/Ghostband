@@ -121,7 +121,7 @@ cmake --build build -j && ctest --test-dir build --output-on-failure
 | 1.3 | Chord naming for display (labels are display-only; MRT2 gets raw notes) | ✅ core done, **tested** (`ChordNamer`) |
 | 1.4 | Prompt editor + async encode status surfacing | ❌ |
 | 1.5 | AI on/off, output level, model selector, audio-device selector | ❌ — selector must **gate `mrt2_base` on hardware**; not real-time on M2 Pro (see MRT2_API_NOTES §1) |
-| 1.6 | `IntensityMacro` (see `ARCHITECTURE.md` §6) + retuning on real audio | ❌ |
+| 1.6 | `IntensityMacro` (see `ARCHITECTURE.md` §6) + retuning on real audio | 🟡 implemented + **tested**; wired to a slider. **Curve not yet judged by ear** |
 | 1.7 | On-screen / computer-key keyboard, so harmony is testable without hardware | ✅ **works** |
 | 1.8 | Measure and characterise harmony latency | ❌ — perceptible by ear, never measured |
 
