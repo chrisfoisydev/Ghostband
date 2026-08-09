@@ -111,12 +111,13 @@ cmake --build build -j && ctest --test-dir build --output-on-failure
 
 | # | Task | Status |
 |---|---|---|
-| 1.1 | MIDI input manager, device enumeration + hot-plug | ❌ |
-| 1.2 | MIDI note state → `set_note_on/off`, sustain pedal, all-notes-off | ❌ |
-| 1.3 | Chord naming for display (labels are display-only; MRT2 gets raw notes) | ❌ |
+| 1.1 | MIDI input manager, device enumeration + hot-plug | ⚠️ written, uncompiled — all inputs opened; disappearance triggers all-notes-off |
+| 1.2 | MIDI note state → `set_note_on/off`, sustain pedal, all-notes-off | ✅ core done, **tested** (`MidiHarmonyState`) |
+| 1.3 | Chord naming for display (labels are display-only; MRT2 gets raw notes) | ✅ core done, **tested** (`ChordNamer`) |
 | 1.4 | Prompt editor + async encode status surfacing | ❌ |
 | 1.5 | AI on/off, output level, model selector, audio-device selector | ❌ — selector must **gate `mrt2_base` on hardware**; not real-time on M2 Pro (see MRT2_API_NOTES §1) |
 | 1.6 | `IntensityMacro` (see `ARCHITECTURE.md` §6) + retuning on real audio | ❌ |
+| 1.7 | On-screen / computer-key keyboard, so harmony is testable without hardware | ⚠️ written, uncompiled |
 
 ## Phase 2 — Live performer
 

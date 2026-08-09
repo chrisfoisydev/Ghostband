@@ -21,7 +21,8 @@ namespace ghostband::app {
 /// What is here: model status, START/STOP, PANIC, a prompt field, an audio-device
 /// selector, and the diagnostics the spike exists to produce.
 class MainComponent : public juce::Component,
-                      private juce::Timer {
+                      private juce::Timer,
+                      private juce::MidiKeyboardState::Listener {
 public:
     MainComponent();
     ~MainComponent() override;
@@ -32,6 +33,10 @@ public:
 
 private:
     void timerCallback() override;
+
+    // juce::MidiKeyboardState::Listener — on-screen/computer-key notes.
+    void handleNoteOn(juce::MidiKeyboardState*, int channel, int note, float velocity) override;
+    void handleNoteOff(juce::MidiKeyboardState*, int channel, int note, float velocity) override;
     void refreshStatus();
     void loadModel();
 
@@ -59,6 +64,15 @@ private:
     juce::TextEditor prompt_editor_;
     juce::Slider level_slider_;
     juce::Label level_label_;
+
+    /// On-screen keyboard, playable with the mouse or the computer keys (A/W/S/E/D...).
+    /// It is a genuine MIDI source, not a simulation: notes go through the same
+    /// MidiHarmonyState a hardware controller uses, so testing here exercises the real
+    /// path. Present because the harmony feature is otherwise untestable without buying a
+    /// controller.
+    juce::MidiKeyboardState keyboard_state_;
+    std::unique_ptr<juce::MidiKeyboardComponent> keyboard_;
+    juce::Label harmony_label_;
 
     juce::Label status_label_;
     juce::Label warning_label_;

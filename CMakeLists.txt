@@ -70,6 +70,8 @@ add_library(ghostband_core STATIC
     src/core/SafetyMonitor.cpp
     src/core/AiOutputStage.cpp
     src/core/Logging.cpp
+    src/core/MidiHarmonyState.cpp
+    src/core/ChordNamer.cpp
 )
 add_library(ghostband::core ALIAS ghostband_core)
 

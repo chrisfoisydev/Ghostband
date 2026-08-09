@@ -17,14 +17,63 @@ namespace ghostband::app {
 using core::LogCategory;
 using core::Logger;
 
+void GhostBandAudioEngine::handleIncomingMidiMessage(juce::MidiInput*,
+                                                     const juce::MidiMessage& message) {
+    // MIDI thread. Atomic stores only — no allocation, no logging, no locks. A device
+    // sending a dense controller stream must not be able to stall anything.
+    if (message.isNoteOn()) {
+        harmony_.noteOn(message.getNoteNumber(), message.getVelocity());
+    } else if (message.isNoteOff()) {
+        harmony_.noteOff(message.getNoteNumber());
+    } else if (message.isSustainPedalOn()) {
+        harmony_.setSustainPedal(true);
+    } else if (message.isSustainPedalOff()) {
+        harmony_.setSustainPedal(false);
+    } else if (message.isAllNotesOff() || message.isAllSoundOff()) {
+        harmony_.allNotesOff();
+    }
+}
+
+void GhostBandAudioEngine::refreshMidiInputs() {
+    const auto devices = juce::MidiInput::getAvailableDevices();
+
+    juce::StringArray names;
+    for (const auto& d : devices) {
+        names.add(d.name);
+        if (!device_manager_.isMidiInputDeviceEnabled(d.identifier)) {
+            device_manager_.setMidiInputDeviceEnabled(d.identifier, true);
+            Logger::instance().info(LogCategory::Midi, "MIDI input opened",
+                                    {{"device", d.name.toStdString()}});
+        }
+    }
+
+    // A device that vanished may have left notes held. Releasing them is the difference
+    // between a silent unplug and a chord stuck under the band for the rest of the song.
+    if (names.size() < open_midi_inputs_.size()) {
+        harmony_.allNotesOff();
+        Logger::instance().warn(LogCategory::Midi,
+                                "MIDI device disappeared - released all notes");
+    }
+    open_midi_inputs_ = names;
+    output_stage_.diagnostics().setMidiConnected(!names.isEmpty());
+}
+
+juce::StringArray GhostBandAudioEngine::midiInputNames() const { return open_midi_inputs_; }
+
+bool GhostBandAudioEngine::anyMidiDeviceConnected() const noexcept {
+    return !open_midi_inputs_.isEmpty();
+}
+
 GhostBandAudioEngine::GhostBandAudioEngine() {
     // Start on the honest backend: no model is loaded yet, and NullBackend reports that
     // truthfully rather than pretending a band exists.
     backend_ = std::make_shared<backend::NullBackend>();
+    harmony_.setBackend(backend_.get());
     load_pool_ = std::make_unique<juce::ThreadPool>(1);
 }
 
 GhostBandAudioEngine::~GhostBandAudioEngine() {
+    device_manager_.removeMidiInputDeviceCallback({}, this);
     device_manager_.removeAudioCallback(this);
     device_manager_.closeAudioDevice();
     load_pool_.reset();
@@ -51,6 +100,8 @@ juce::String GhostBandAudioEngine::initialise() {
     }
 
     device_manager_.addAudioCallback(this);
+    device_manager_.addMidiInputDeviceCallback({}, this); // {} = all enabled inputs
+    refreshMidiInputs();
     return {};
 }
 
@@ -185,6 +236,8 @@ void GhostBandAudioEngine::loadModelAsync(const juce::File& resourceDir,
                 // discard a panic the performer had engaged on purpose.
                 device_manager_.removeAudioCallback(this);
                 backend_ = mrt2;
+                harmony_.allNotesOff();          // the old backend's notes are gone
+                harmony_.setBackend(backend_.get());
                 device_manager_.addAudioCallback(this);
 
                 output_stage_.diagnostics().setModelName(backend_->name());
@@ -213,7 +266,7 @@ void GhostBandAudioEngine::stopGeneration() {
     // while the engine is merely idle.
     output_stage_.setGenerating(false);
     backend_->stop();
-    backend_->allNotesOff();
+    harmony_.allNotesOff();
 }
 
 void GhostBandAudioEngine::panic() {
@@ -224,7 +277,7 @@ void GhostBandAudioEngine::panic() {
 
     // 2. Belt and braces, best-effort, off the critical path.
     backend_->setMute(true);
-    backend_->allNotesOff();
+    harmony_.allNotesOff();
 }
 
 void GhostBandAudioEngine::clearPanic() {

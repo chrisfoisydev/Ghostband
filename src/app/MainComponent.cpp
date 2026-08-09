@@ -5,6 +5,7 @@
 
 #include "MainComponent.h"
 
+#include "core/ChordNamer.h"
 #include "core/GhostBandConstants.h"
 #include "core/Logging.h"
 
@@ -92,6 +93,18 @@ MainComponent::MainComponent() {
         engine_.setOutputLevelDb(static_cast<float>(level_slider_.getValue()));
     };
 
+    keyboard_ = std::make_unique<juce::MidiKeyboardComponent>(
+        keyboard_state_, juce::MidiKeyboardComponent::horizontalKeyboard);
+    keyboard_->setAvailableRange(36, 84);          // C2..C6, enough for chord work
+    keyboard_->setKeyPressBaseOctave(4);           // computer keys start at C4
+    keyboard_->setLowestVisibleKey(48);
+    addAndMakeVisible(*keyboard_);
+    keyboard_state_.addListener(this);
+
+    addAndMakeVisible(harmony_label_);
+    harmony_label_.setColour(juce::Label::textColourId, kText);
+    harmony_label_.setFont(juce::FontOptions(18.0f, juce::Font::bold));
+
     addAndMakeVisible(status_label_);
     status_label_.setColour(juce::Label::textColourId, kText);
     status_label_.setFont(juce::FontOptions(20.0f, juce::Font::bold));
@@ -126,7 +139,18 @@ MainComponent::MainComponent() {
     refreshStatus();
 }
 
-MainComponent::~MainComponent() { stopTimer(); }
+MainComponent::~MainComponent() {
+    keyboard_state_.removeListener(this);
+    stopTimer();
+}
+
+void MainComponent::handleNoteOn(juce::MidiKeyboardState*, int, int note, float velocity) {
+    engine_.harmony().noteOn(note, juce::jlimit(1, 127, juce::roundToInt(velocity * 127.0f)));
+}
+
+void MainComponent::handleNoteOff(juce::MidiKeyboardState*, int, int note, float) {
+    engine_.harmony().noteOff(note);
+}
 
 juce::File MainComponent::defaultResourceDir() {
     return juce::File::getSpecialLocation(juce::File::userDocumentsDirectory)
@@ -184,6 +208,16 @@ void MainComponent::refreshStatus() {
     const auto snap = engine_.diagnostics();
     const auto state = engine_.engineState();
 
+    // Detected harmony. Display only — MRT2 is steered by the raw notes, never by this
+    // label, so a naming miss can never become a wrong chord.
+    const auto sounding = engine_.harmony().soundingNotes();
+    const juce::String chord_notes(core::noteNames(sounding));
+    const juce::String chord_name(core::nameChord(sounding));
+    harmony_label_.setText(sounding.empty()
+                               ? juce::String("Harmony: (nothing held)")
+                               : "Harmony: " + chord_notes + "   " + chord_name,
+                           juce::dontSendNotification);
+
     juce::String status = juce::String(toDisplayString(state));
     if (!engine_.hasRealBackend() && state != core::EngineState::Loading) {
         // CLAUDE.md rule 2: never present a non-generating backend as a working band.
@@ -238,7 +272,11 @@ void MainComponent::refreshStatus() {
       << "Gain reduction        " << juce::String(snap.gainReductionDb, 1) << " dB\n"
       << "CPU (audio)           " << juce::String(snap.audioCpuLoad * 100.0f, 1) << " %\n"
       << "\n"
-      << "MIDI                  not implemented (Phase 1)\n"
+      << "MIDI                  " << (engine_.anyMidiDeviceConnected()
+                                        ? engine_.midiInputNames().joinIntoString(", ")
+                                        : juce::String("no device (use the on-screen keyboard)")) << "\n"
+      << "Sounding notes        " << juce::String(engine_.harmony().soundingCount())
+                                  << "   " << juce::String(chord_notes) << "\n"
       << "Memory                " << juce::String(snap.memoryUsageGb, 2) << " GB\n";
 
     // Preserve the caret/scroll so the panel does not fight the user at 10 Hz.
@@ -314,6 +352,12 @@ void MainComponent::resized() {
     auto level_row = area.removeFromTop(28);
     level_label_.setBounds(level_row.removeFromLeft(150));
     level_slider_.setBounds(level_row);
+
+    area.removeFromTop(8);
+    harmony_label_.setBounds(area.removeFromTop(26));
+
+    if (keyboard_) keyboard_->setBounds(area.removeFromBottom(90));
+    area.removeFromBottom(8);
 
     area.removeFromTop(12);
     auto lower = area;

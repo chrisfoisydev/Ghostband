@@ -8,6 +8,7 @@
 #include "core/AiOutputStage.h"
 #include "core/EngineState.h"
 #include "core/IGenerationBackend.h"
+#include "core/MidiHarmonyState.h"
 
 #include <juce_audio_devices/juce_audio_devices.h>
 #include <juce_audio_utils/juce_audio_utils.h>
@@ -21,7 +22,8 @@ namespace ghostband::app {
 ///
 /// The UI talks to this class and never to the backend directly, so there is exactly one
 /// place where the audio callback's invariants are enforced.
-class GhostBandAudioEngine : private juce::AudioIODeviceCallback {
+class GhostBandAudioEngine : private juce::AudioIODeviceCallback,
+                             private juce::MidiInputCallback {
 public:
     GhostBandAudioEngine();
     ~GhostBandAudioEngine() override;
@@ -58,6 +60,22 @@ public:
     void setTextPrompt(const juce::String& prompt);
     /// @}
 
+    /// @name Harmony (Phase 1)
+    ///
+    /// Fed from two sources that are deliberately indistinguishable downstream: a real
+    /// MIDI device, and the on-screen keyboard. Both land in the same MidiHarmonyState,
+    /// so testing with the computer keyboard exercises the identical path a controller
+    /// will use — not a parallel one that might diverge.
+    /// @{
+    core::MidiHarmonyState& harmony() noexcept { return harmony_; }
+    const core::MidiHarmonyState& harmony() const noexcept { return harmony_; }
+
+    /// Open every available MIDI input. Called at startup and on hot-plug.
+    void refreshMidiInputs();
+    juce::StringArray midiInputNames() const;
+    bool anyMidiDeviceConnected() const noexcept;
+    /// @}
+
     core::EngineState engineState() const noexcept { return state_.state(); }
     juce::String engineError() const { return juce::String(state_.errorReason()); }
     core::PromptStatus promptStatus() const;
@@ -92,6 +110,10 @@ private:
     void audioDeviceStopped() override;
     void audioDeviceError(const juce::String& errorMessage) override;
 
+    // juce::MidiInputCallback — called on the MIDI thread.
+    void handleIncomingMidiMessage(juce::MidiInput* source,
+                                   const juce::MidiMessage& message) override;
+
     juce::AudioDeviceManager device_manager_;
     /// shared_ptr because backend ownership has to be handed across a std::function
     /// during an async load, and Mrt2Backend is neither copyable nor movable.
@@ -113,6 +135,9 @@ private:
     std::atomic<int> out_channel_right_{1};
 
     std::unique_ptr<juce::ThreadPool> load_pool_;
+
+    core::MidiHarmonyState harmony_;
+    juce::StringArray open_midi_inputs_;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(GhostBandAudioEngine)
 };
