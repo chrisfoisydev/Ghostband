@@ -2,7 +2,23 @@
 # Copyright 2026 Follow contributors. Licensed under Apache-2.0.
 
 cmake_minimum_required(VERSION 3.24)
-project(Follow VERSION 0.1.0 LANGUAGES CXX)
+
+# C is required even though Follow itself is pure C++20: JUCE hard-errors without a C
+# compiler ("A C compiler is required to build targets that depend on JUCE"), and several
+# of MRT2's transitive dependencies (TFLite, ruy, flatbuffers) contain C sources.
+project(Follow VERSION 0.1.0 LANGUAGES C CXX)
+
+# On Apple, MRT2's inference loop needs an Objective-C autorelease pool per iteration and
+# JUCE's platform layer is Objective-C++. Upstream magenta-realtime declares
+# `LANGUAGES C CXX OBJCXX` for the same reason. Enabled here rather than in the app
+# subdirectory because the toolchain must be probed before any target that needs it.
+# No-op off Apple, so the portable core build is unaffected.
+if(APPLE)
+    enable_language(OBJC)
+    enable_language(OBJCXX)
+    set(CMAKE_OBJCXX_STANDARD 20)
+    set(CMAKE_OBJCXX_STANDARD_REQUIRED ON)
+endif()
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
