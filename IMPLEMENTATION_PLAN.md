@@ -25,7 +25,7 @@ application.* Not "the UI exists."
 | 0.10 | `Mrt2Backend` wrapping `magentart::core::RealtimeRunner` | ✅ **compiles and runs** — loads `mrt2_small`, streams via `RealtimeRunner` |
 | 0.11 | JUCE host: audio device, 48 kHz stereo out, START/STOP/PANIC, diagnostics | ✅ **builds and runs** — `Follow.app`, 48 kHz/512, diagnostics live |
 | 0.12 | Build + run official `hello_mrt2` | ✅ **done on target hardware** (2026-08-09) |
-| 0.13 | Confirm real-time inference with `mrt2_small` | ✅ **done** — **17.17 ms per 40 ms frame (42.9% of budget)** inside Follow, on an M-series MacBook Pro |
+| 0.13 | Confirm real-time inference with `mrt2_small` | ✅ **done** — **17.17 ms per 40 ms frame (42.9%)** inside Follow, on an **Apple M2 Pro** |
 | 0.14 | Verify 48 kHz stereo output from a generated file | ✅ **done** — `out.wav`, 4.00 s, plays correctly as music |
 | 0.15 | Measure generation latency, underruns, CPU/GPU, memory | 🟡 **partial** — frame time and underruns measured; memory still unmeasured |
 
@@ -113,7 +113,7 @@ cmake --build build -j && ctest --test-dir build --output-on-failure
 | 1.2 | MIDI note state → `set_note_on/off`, sustain pedal, all-notes-off | ❌ |
 | 1.3 | Chord naming for display (labels are display-only; MRT2 gets raw notes) | ❌ |
 | 1.4 | Prompt editor + async encode status surfacing | ❌ |
-| 1.5 | AI on/off, output level, model selector, audio-device selector | ❌ |
+| 1.5 | AI on/off, output level, model selector, audio-device selector | ❌ — selector must **gate `mrt2_base` on hardware**; not real-time on M2 Pro (see MRT2_API_NOTES §1) |
 | 1.6 | `IntensityMacro` (see `ARCHITECTURE.md` §6) + retuning on real audio | ❌ |
 
 ## Phase 2 — Live performer

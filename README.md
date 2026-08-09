@@ -19,11 +19,11 @@ This is **not** playing along to backing tracks.
 | ✅ Portable safety core — **built and tested** (PANIC, limiter, underrun policy, state machine) | `src/core/`, `tests/` |
 | ✅ MRT2 proven on target hardware — `mrt2_small` generates 48 kHz stereo music | via upstream `hello_mrt2` |
 | ✅ MRT2 backend + JUCE host — **build and run**; Follow streams MRT2 audio | `src/backend/`, `src/app/` |
-| ✅ **Real-time confirmed — 17.17 ms per 40 ms frame (42.9%)** on an M-series MacBook Pro | measured in-app |
+| ✅ **Real-time confirmed — 17.17 ms per 40 ms frame (42.9%)** on an **Apple M2 Pro** | measured in-app |
 
 **Phase 0's goal is met: MRT2 generates real-time audio inside Follow.** Generation runs
-at 17.17 ms against a 40 ms frame budget, so the model produces audio ~2.3x faster than it
-plays back.
+at 17.17 ms against a 40 ms frame budget on an Apple M2 Pro, so `mrt2_small` produces audio
+~2.3x faster than it plays back. (`mrt2_base` is not real-time on this class of chip.)
 
 Not yet confirmed: **audible output through the full stage has not been heard.** The first
 run was silenced by an underrun-policy bug (now fixed, see `KNOWN_ISSUES.md` §10) and the

@@ -155,3 +155,21 @@ blocks while stopped must not trip Degraded).
 
 **Status: fixed and unit-tested; NOT yet re-run on hardware.** Until someone hears audio
 from Follow, criteria 3, 7 and 8 in `STAGE_READINESS.md` stay partial.
+
+---
+
+## 11. ⚠️ `mrt2_base` ("High Quality") is not real-time on the reference machine
+
+The development/reference machine is an **Apple M2 Pro**. Upstream's own capability table
+marks M2 Pro as ❌ for `mrt2_base` real-time streaming, and our measurement supports it:
+`mrt2_small` already consumes 42.9% of the 40 ms frame budget, and base is ~10x the
+parameters (2.4B vs 230M).
+
+**Impact:** the Phase 1 model selector must not simply list both models. Offering a
+"High Quality" option that cannot keep up would produce continuous underruns mid-set —
+precisely the "control that looks live but does nothing" `CLAUDE.md` rule 2 forbids.
+
+**Resolution (Phase 1):** detect the chip, and either hide `mrt2_base` or show it disabled
+with an explicit reason ("requires M-series Pro Max"). Never switch models while
+performing, per the brief. A user who installs base anyway should get a clear warning
+rather than a degraded show.

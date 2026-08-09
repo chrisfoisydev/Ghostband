@@ -48,6 +48,22 @@ executed on Linux/x86 CI.* See `KNOWN_ISSUES.md` §1.
 This directly justifies our product policy: `mrt2_small` = **Performance** (default),
 `mrt2_base` = **High Quality** (opt-in, gated on hardware).
 
+### Measured baseline (2026-08-09)
+
+| Machine | Model | Frame time | Budget | Headroom |
+|---|---|---|---|---|
+| **Apple M2 Pro** (MacBook Pro) | `mrt2_small` | **17.17 ms** | 40 ms | **42.9% used, ~2.3x real time** |
+
+Measured in-app via `EngineMetrics::total_ms` (all of it in `transformer_ms`), at a
+48 kHz / 512-sample device buffer, generation buffer 3328/3840 samples.
+
+**`mrt2_base` is NOT real-time on this machine.** Upstream's table marks M2 Pro ❌ for
+base, and base is ~10x the parameters (2.4B vs 230M) against a frame budget already 43%
+consumed by small. Follow must therefore *gate* the High Quality option on detected
+hardware rather than merely offering it — offering a model that cannot keep up would be
+exactly the "control that looks live and does nothing" that `CLAUDE.md` rule 2 forbids.
+Tracked for Phase 1 (model selector).
+
 ---
 
 ## 2. The two C++ classes we consume
