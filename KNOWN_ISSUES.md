@@ -26,8 +26,7 @@ audio/GUI dependencies (ALSA, freetype) are also absent here.
 
 **Still open:**
 
-- ❌ **Audible output from Follow has not been heard** — the first run was silenced by the
-  bug in §10. Fixed and unit-tested, not yet re-run.
+- ✅ **Audible output confirmed** — the band plays through Follow on an Apple M2 Pro.
 - ❌ Memory growth, long-run stability, device reconnect — unmeasured.
 
 **Structural consequence:** every change to `src/backend/` or `src/app/` is unverified
@@ -153,8 +152,8 @@ is not running, an empty buffer is the expected state.
 **Covered by five new tests**, including the exact observed scenario (5000 underrunning
 blocks while stopped must not trip Degraded).
 
-**Status: fixed and unit-tested; NOT yet re-run on hardware.** Until someone hears audio
-from Follow, criteria 3, 7 and 8 in `STAGE_READINESS.md` stay partial.
+**Status: fixed, unit-tested, and CONFIRMED ON HARDWARE (2026-08-09).** With the fix in
+place the band is audible on an Apple M2 Pro.
 
 ---
 

@@ -11,6 +11,8 @@ Last updated: 2026-08-08
 **Goal:** *Magenta RealTime 2 generates stable real-time audio inside our standalone
 application.* Not "the UI exists."
 
+> **✅ MET, 2026-08-09.** Audible band on an Apple M2 Pro at 17.17 ms / 40 ms frame budget.
+
 | # | Task | Status |
 |---|---|---|
 | 0.1 | Inspect environment, confirm target hardware | ✅ done — **result: not Apple Silicon**, see below |
@@ -151,9 +153,15 @@ import/export · model management · packaging + notarisation. All ❌.
 
 ## Immediate next actions
 
-1. **On an Apple Silicon Mac:** run the Phase 0 closure commands above. Nothing further
-   should be built until `Mrt2Backend` has streamed audio once.
-2. Retune `IntensityMacro` against real generated audio (`KNOWN_ISSUES.md` §3).
-3. Measure and set the generation buffer default on real hardware
-   (`ARCHITECTURE.md` §3.1).
-4. Only then begin Phase 1.
+Phase 0 is closed. Before adding features, two cheap things are worth doing while the
+setup is fresh:
+
+1. **A 10-minute soak** — leave it generating and watch underruns, `Health`, and memory.
+   The brief is blunt that "a live performance application that works for 90 seconds is
+   not finished". This is the smallest version of that test and it costs nothing but time.
+2. **Confirm PANIC audibly** — press Escape while the band plays. It should fade in ~32 ms
+   with no click. It is unit-tested, but the pedal is the one control that must never
+   surprise anyone.
+
+Then Phase 1, starting with MIDI input (1.1–1.2) — the shortest path to the brief's stated
+milestone: *hold a chord on a keyboard, hear MRT2 build an ensemble on it.*

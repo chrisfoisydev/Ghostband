@@ -10,7 +10,7 @@ This is **not** playing along to backing tracks.
 
 ---
 
-## Status: Phase 0 (technical spike), partially complete
+## Status: Phase 0 (technical spike) — **complete**
 
 | | |
 |---|---|
@@ -25,9 +25,9 @@ This is **not** playing along to backing tracks.
 at 17.17 ms against a 40 ms frame budget on an Apple M2 Pro, so `mrt2_small` produces audio
 ~2.3x faster than it plays back. (`mrt2_base` is not real-time on this class of chip.)
 
-Not yet confirmed: **audible output through the full stage has not been heard.** The first
-run was silenced by an underrun-policy bug (now fixed, see `KNOWN_ISSUES.md` §10) and the
-fix has not been re-run on hardware. Nothing has been soak-tested.
+**The band is audible on an Apple M2 Pro** — the full chain from MRT2 through Follow's
+safety stage to CoreAudio is confirmed working. Nothing has been soak-tested, and no
+device-failure or long-run behaviour has been exercised yet.
 
 This repository is developed in a Linux x86-64 container where MRT2 cannot build at all;
 the app is compiled and run separately on an Apple Silicon Mac. Nothing is on stage until
