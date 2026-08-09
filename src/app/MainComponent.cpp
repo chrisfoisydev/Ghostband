@@ -42,8 +42,6 @@ juce::String promptStatusText(core::PromptStatus s) {
 } // namespace
 
 MainComponent::MainComponent() {
-    setSize(880, 720);
-
     const juce::String audio_error = engine_.initialise();
 
     addAndMakeVisible(load_button_);
@@ -124,8 +122,8 @@ MainComponent::MainComponent() {
         engine_.deviceManager(),
         /*minInput*/ 0, /*maxInput*/ 0,   // Phase 0 has no input: GhostBand is additive only
         /*minOutput*/ 2, /*maxOutput*/ 2,
-        /*showMidi*/ false,               // MIDI arrives in Phase 1, so it is absent, not fake
-        /*showMidiOutput*/ false,
+        /*showMidi*/ true,                // Phase 1: MIDI inputs are real, so show them
+        /*showMidiOutput*/ false,         // GhostBand never sends MIDI out
         /*showChannelsAsStereoPairs*/ true,
         /*hideAdvanced*/ false);
     addAndMakeVisible(*device_selector_);
@@ -137,6 +135,12 @@ MainComponent::MainComponent() {
     setWantsKeyboardFocus(true);
     startTimerHz(10);
     refreshStatus();
+
+    // setSize() LAST, not first. It triggers resized(), and any child still unbuilt at
+    // that moment is skipped by its null guard — permanently, because the size never
+    // changes again afterwards. Sizing first left the on-screen keyboard and the audio
+    // device selector laid out at zero size and therefore invisible.
+    setSize(880, 800);
 }
 
 MainComponent::~MainComponent() {
@@ -213,8 +217,11 @@ void MainComponent::refreshStatus() {
     const auto sounding = engine_.harmony().soundingNotes();
     const juce::String chord_notes(core::noteNames(sounding));
     const juce::String chord_name(core::nameChord(sounding));
+    // The hint is part of the readout rather than a separate label: the on-screen
+    // keyboard only receives computer keys once it has focus, and that is not guessable.
     harmony_label_.setText(sounding.empty()
-                               ? juce::String("Harmony: (nothing held)")
+                               ? juce::String("Harmony: nothing held   "
+                                              "(click the keyboard below, then play A S D F G H J)")
                                : "Harmony: " + chord_notes + "   " + chord_name,
                            juce::dontSendNotification);
 
