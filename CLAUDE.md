@@ -59,6 +59,11 @@ touch the UI, load a model, or call anything with unbounded latency.
 - Generated accompaniment should stay instrumental where practical.
 - Dark, high-contrast, stage-hardware aesthetic. No gradients-everywhere, no AI sparkles,
   no chat UI, no generic purple.
+- The wordmark is **GHOSTBAND** — one word, all caps, heavy condensed sans with chamfered
+  corners. "GHOST" is drawn as an outline, "BAND" solid. Rendered typographically in-app
+  (`MainComponent::drawWordmark`) rather than as a bitmap, so it stays sharp at any scale
+  and inherits the stage palette. Never set it as two words or in mixed case in UI chrome;
+  "GhostBand" is fine in prose and docs.
 
 ## Coding rules
 

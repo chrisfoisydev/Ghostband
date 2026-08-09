@@ -35,6 +35,10 @@ private:
     void refreshStatus();
     void loadModel();
 
+    /// Draw the GHOSTBAND wordmark: "GHOST" outlined, "BAND" solid, set as one word.
+    /// `baseline` is the text baseline, not the top of the glyphs.
+    void drawWordmark(juce::Graphics& g, float x, float baseline, float height);
+
     /// Resolve the default MRT2 install location used by upstream's own examples:
     /// ~/Documents/Magenta/magenta-rt-v2/
     static juce::File defaultResourceDir();

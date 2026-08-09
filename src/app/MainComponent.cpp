@@ -238,12 +238,35 @@ void MainComponent::refreshStatus() {
     }
 }
 
+void MainComponent::drawWordmark(juce::Graphics& g, float x, float baseline, float height) {
+    // The GHOSTBAND mark: one word, all caps, "GHOST" as an outline and "BAND" solid.
+    // Reproducing that split here rather than shipping a bitmap keeps the header sharp on
+    // any display and lets it inherit the stage palette. Outlines are built through
+    // GlyphArrangement -> Path because JUCE has no "stroke this text" call.
+    const juce::Font mark(juce::FontOptions(height, juce::Font::bold));
+
+    juce::GlyphArrangement ghost;
+    ghost.addLineOfText(mark, "GHOST", x, baseline);
+    juce::Path ghost_path;
+    ghost.createPath(ghost_path);
+
+    g.setColour(kText);
+    g.strokePath(ghost_path, juce::PathStrokeType(1.4f));
+
+    // Butt the two halves together — the mark is a single word, not two.
+    const float ghost_width = ghost.getBoundingBox(0, -1, true).getWidth();
+
+    juce::GlyphArrangement band;
+    band.addLineOfText(mark, "BAND", x + ghost_width, baseline);
+    juce::Path band_path;
+    band.createPath(band_path);
+    g.fillPath(band_path);
+}
+
 void MainComponent::paint(juce::Graphics& g) {
     g.fillAll(kBackground);
 
-    g.setColour(kText);
-    g.setFont(juce::FontOptions(28.0f, juce::Font::bold));
-    g.drawText("FOLLOW", 24, 16, 300, 34, juce::Justification::left);
+    drawWordmark(g, 24.0f, 44.0f, 30.0f);
 
     g.setColour(kDim);
     g.setFont(juce::FontOptions(13.0f));
