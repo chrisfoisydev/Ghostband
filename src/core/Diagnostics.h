@@ -1,16 +1,16 @@
-// Follow — live AI accompaniment for singer-songwriters.
-// Copyright 2026 Follow contributors. Licensed under Apache-2.0.
+// GhostBand — live AI accompaniment for singer-songwriters.
+// Copyright 2026 GhostBand contributors. Licensed under Apache-2.0.
 
 #pragma once
 
 #include "EngineState.h"
-#include "FollowConstants.h"
+#include "GhostBandConstants.h"
 
 #include <atomic>
 #include <cstddef>
 #include <cstdint>
 
-namespace follow::core {
+namespace ghostband::core {
 
 /// A consistent-enough picture of runtime health, for the developer diagnostics view
 /// (brief §25) and for the performer-facing status block (§6).
@@ -144,4 +144,4 @@ private:
     std::atomic<bool> midi_connected_{false};
 };
 
-} // namespace follow::core
+} // namespace ghostband::core

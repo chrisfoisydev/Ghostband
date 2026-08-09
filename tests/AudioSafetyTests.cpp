@@ -1,8 +1,8 @@
-// Follow — live AI accompaniment for singer-songwriters.
-// Copyright 2026 Follow contributors. Licensed under Apache-2.0.
+// GhostBand — live AI accompaniment for singer-songwriters.
+// Copyright 2026 GhostBand contributors. Licensed under Apache-2.0.
 //
 // Tests for the failure path: PANIC, the limiter, and underrun policy.
-// This is the part of Follow that decides whether a bad night is a glitch or a ruined
+// This is the part of GhostBand that decides whether a bad night is a glitch or a ruined
 // set, so it is the part built and tested first.
 
 #include "TestMain.h"
@@ -15,7 +15,7 @@
 #include <limits>
 #include <vector>
 
-using namespace follow::core;
+using namespace ghostband::core;
 
 namespace {
 

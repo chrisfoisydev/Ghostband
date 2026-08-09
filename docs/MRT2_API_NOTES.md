@@ -1,7 +1,7 @@
 # MRT2 API Notes — Source-Verified Inventory
 
 **Purpose:** This file records what Magenta RealTime 2 *actually* exposes, verified by
-reading the upstream source. Per `CLAUDE.md`, no Follow code may assume an MRT2 API that
+reading the upstream source. Per `CLAUDE.md`, no GhostBand code may assume an MRT2 API that
 is not listed here.
 
 **Upstream pinned at:** `magenta/magenta-realtime` commit `694a545e4ba0b88bf1150137b129582166d3e07f`
@@ -34,7 +34,7 @@ endif()
 requires an Objective-C autorelease pool per iteration
 (`core/include/magentart/detail/autorelease_pool.h`).
 
-**Consequence for Follow:** the real-time engine is inherently macOS/Apple Silicon.
+**Consequence for GhostBand:** the real-time engine is inherently macOS/Apple Silicon.
 This matches our V1 target, but it means *no part of the MRT2 path can be compiled or
 executed on Linux/x86 CI.* See `KNOWN_ISSUES.md` §1.
 
@@ -59,7 +59,7 @@ Measured in-app via `EngineMetrics::total_ms` (all of it in `transformer_ms`), a
 
 **`mrt2_base` is NOT real-time on this machine.** Upstream's table marks M2 Pro ❌ for
 base, and base is ~10x the parameters (2.4B vs 230M) against a frame budget already 43%
-consumed by small. Follow must therefore *gate* the High Quality option on detected
+consumed by small. GhostBand must therefore *gate* the High Quality option on detected
 hardware rather than merely offering it — offering a model that cannot keep up would be
 exactly the "control that looks live and does nothing" that `CLAUDE.md` rule 2 forbids.
 Tracked for Phase 1 (model selector).
@@ -73,7 +73,7 @@ Both live in `namespace magentart::core`.
 - **`MLXEngine`** (`core/include/magentart/mlx_engine.h`) — the raw inference pipeline.
   Not thread-safe as a whole. `generate_frame()` is blocking and synchronous.
 - **`RealtimeRunner`** (`core/include/magentart/realtime_runner.h`) — audio-thread-safe
-  wrapper around `MLXEngine`. **This is what Follow uses.**
+  wrapper around `MLXEngine`. **This is what GhostBand uses.**
 
 `RealtimeRunner`'s own header documents that it adds:
 
@@ -86,8 +86,8 @@ Both live in `namespace magentart::core`.
 
 **This is a significant finding: MRT2 already solves a large part of what our brief
 assumed we would build ourselves** (inference thread, SPSC ring buffers, underrun
-counting, gain smoothing, recording). Follow should *not* reimplement these. See
-§7 "Native vs. Follow-implemented".
+counting, gain smoothing, recording). GhostBand should *not* reimplement these. See
+§7 "Native vs. GhostBand-implemented".
 
 ---
 
@@ -167,7 +167,7 @@ Critical properties, quoting the header:
 
 ---
 
-## 6. Control APIs relevant to Follow's product model
+## 6. Control APIs relevant to GhostBand's product model
 
 ### 6.1 Harmony steering (MIDI) — CONFIRMED NATIVE
 
@@ -230,16 +230,16 @@ while (engine.get_text_encoder_status() == 1 || engine.get_quantizer_status() ==
 }
 ```
 
-**This is the single most important fact for Follow's section changes.** Setting a new
+**This is the single most important fact for GhostBand's section changes.** Setting a new
 text prompt at a section boundary incurs an async encode. We must not stall the
 performance waiting for it.
 
-**Follow's design consequence (§15 of the brief — prompt transitions):**
+**GhostBand's design consequence (§15 of the brief — prompt transitions):**
 MRT2 does *not* expose a "crossfade to a new prompt over N ms" call. But it exposes
 exactly the primitive needed to build one: up to **6 prompt slots with atomic,
 automatable blend weights**. Therefore:
 
-> Follow pre-loads every section's style prompt into a distinct prompt slot at
+> GhostBand pre-loads every section's style prompt into a distinct prompt slot at
 > **song load time** (when encoding latency is free), then a section change is a
 > pure **blend-weight ramp** between slots — no encode, no stall, sample-accurate
 > timing, and it supports the brief's Instant / 250 ms / 500 ms / 1 s / 2 s
@@ -264,8 +264,8 @@ void set_unmask_width(int w);
 void set_seed_rotation(int r);
 ```
 
-**Verdict: the brief's `AI INTENSITY` macro must be built by Follow.** Its mapping is a
-Follow-owned design decision and is specified in `ARCHITECTURE.md` §6. It is emphatically
+**Verdict: the brief's `AI INTENSITY` macro must be built by GhostBand.** Its mapping is a
+GhostBand-owned design decision and is specified in `ARCHITECTURE.md` §6. It is emphatically
 *not* an audio gain — `AI OUTPUT LEVEL` (→ `set_volume_db`) is the gain.
 
 ### 6.4 Output control / PANIC primitives
@@ -282,7 +282,7 @@ void set_latency_comp(bool c);
 `set_mute` is smoothed by `smoothed_gain_`, but **the smoothing constant is internal and
 not settable**, so we cannot guarantee the brief's 20–50 ms PANIC fade through it.
 
-**Follow's design consequence:** PANIC is implemented in *our* output stage as an
+**GhostBand's design consequence:** PANIC is implemented in *our* output stage as an
 explicit, specified fade (`FadeEnvelope`, default 30 ms), applied after
 `read_audio_stereo`. `set_mute(true)` is issued as a *secondary* belt-and-braces step.
 This also means PANIC keeps working even if the MRT2 engine is wedged, which is the
@@ -306,7 +306,7 @@ std::vector<std::string> get_logs();
 
 `total_ms` vs. the 40 ms frame budget is the **real-time headroom signal** — if
 `total_ms` trends above 40 ms, generation cannot keep up and we are heading for
-underruns. This drives Follow's `SafetyMonitor` and the "Generation: Stable" indicator.
+underruns. This drives GhostBand's `SafetyMonitor` and the "Generation: Stable" indicator.
 
 ### 6.6 Recording — CONFIRMED NATIVE
 
@@ -337,9 +337,9 @@ research; not used in Phase 0.
 
 ---
 
-## 7. Native vs. Follow-implemented (the §1.8 deliverable)
+## 7. Native vs. GhostBand-implemented (the §1.8 deliverable)
 
-| Capability | MRT2 native | Follow must build |
+| Capability | MRT2 native | GhostBand must build |
 |---|---|---|
 | 48 kHz stereo streaming generation | ✅ `RealtimeRunner` | — |
 | Inference thread @ 25 Hz | ✅ | — |
@@ -366,7 +366,7 @@ research; not used in Phase 0.
 
 1. **`set_audio_prompt(int index, const std::string& path)` is a stub.** The header
    carries an upstream `TODO(public-release)` stating that when `path` is non-empty it
-   "writes a deterministic fake embedding rather than decoding the file." **Follow must
+   "writes a deterministic fake embedding rather than decoding the file." **GhostBand must
    not call this.** Use `set_audio_prompt_samples()` (which really encodes) instead.
    This is exactly the kind of thing our "never fake functionality" rule exists for.
 
@@ -379,11 +379,11 @@ research; not used in Phase 0.
    streaming model constant is `kNumRVQLevels = 12` and `MODEL.md`'s own LLM section says
    the transformer emits "12 RVQ tokens" per frame. The 64 refers to the full codec; 12
    is what the LLM generates. Not a contradiction, but the surface reading is confusing.
-   Follow only ever deals with decoded audio, so this does not affect us.
+   GhostBand only ever deals with decoded audio, so this does not affect us.
 
 4. **`MODEL.md` describes the MIDI input as a "128-dim multihot vector"**, but the C++
    tracker allocates **132** pitches (128 + 4 drum triggers). Source wins: valid input
-   range is `0 ≤ n < 132`, with 128–131 being drum triggers rather than pitches. Follow
+   range is `0 ≤ n < 132`, with 128–131 being drum triggers rather than pitches. GhostBand
    clamps MIDI note input to 0–127 and reserves 128–131 for future explicit drum
    triggering.
 
@@ -409,10 +409,10 @@ updated after the first build on target hardware (2026-08-09):
 
 - ❌ **Real-time throughput.** `hello_mrt2` generates offline and reports no timing, so
   "faster than playback" is *not* yet demonstrated. This is the single most important
-  open number for Follow and needs `EngineMetrics::total_ms` against the 40 ms frame
-  budget — i.e. it needs the Follow app.
+  open number for GhostBand and needs `EngineMetrics::total_ms` against the 40 ms frame
+  budget — i.e. it needs the GhostBand app.
 - ❌ `RealtimeRunner` (as opposed to `MLXEngine`) has never been exercised. `hello_mrt2`
-  uses `MLXEngine::generate_frame` directly; Follow uses the runner's inference thread
+  uses `MLXEngine::generate_frame` directly; GhostBand uses the runner's inference thread
   and ring buffers, which is a different code path.
 - ❌ MIDI steering, prompt blending, and underrun behaviour under load.
 - ❌ Long-run stability and memory growth.

@@ -1,4 +1,4 @@
-# Follow — Stage Readiness Checklist
+# GhostBand — Stage Readiness Checklist
 
 The question this file answers: **would I take this to a paying gig tonight?**
 
@@ -14,7 +14,7 @@ Legend: ✅ verified by execution · ⚠️ implemented but unverified · ❌ no
 | # | Criterion | Status | Evidence / blocker |
 |---|---|---|---|
 | 1 | App launches reliably | 🟡 | launches and runs; "reliably" needs repetition + soak |
-| 2 | MRT2 Small loads reliably | 🟡 | loads inside Follow (once); repetition untested |
+| 2 | MRT2 Small loads reliably | 🟡 | loads inside GhostBand (once); repetition untested |
 | 3 | Continuous streaming works | 🟡 | **audible band confirmed** on M2 Pro, 17.17/40 ms; no soak test yet |
 | 4 | MIDI chords steer generated harmony | ❌ | Phase 1; MRT2 API verified, not wired |
 | 5 | Section changes work | ❌ | Phase 2 |
@@ -35,7 +35,7 @@ Legend: ✅ verified by execution · ⚠️ implemented but unverified · ❌ no
 outright, and ticking it honestly is what makes the other sixteen trustworthy.
 
 **Phase 0 is closed (2026-08-09).** The full chain is confirmed on an Apple M2 Pro: MRT2
-generates → `RealtimeRunner` streams → Follow's safety stage processes → CoreAudio outputs
+generates → `RealtimeRunner` streams → GhostBand's safety stage processes → CoreAudio outputs
 → **the band is audible**. Frame time 17.17 ms against a 40 ms budget, ~2.3x real time.
 The underrun-policy fix (`KNOWN_ISSUES.md` §10) is confirmed working on hardware, not just
 in tests.
@@ -86,8 +86,8 @@ Not yet usable, kept here so it is written before it is needed.
 - [ ] Laptop: sleep disabled, notifications off, power connected
 
 **Non-negotiable**
-- [ ] Voice and guitar are routed **around** Follow, and the show works with the laptop
-      closed. If this is not true, do not use Follow.
+- [ ] Voice and guitar are routed **around** GhostBand, and the show works with the laptop
+      closed. If this is not true, do not use GhostBand.
 
 ---
 

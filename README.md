@@ -1,4 +1,4 @@
-# Follow
+# GhostBand
 
 **Your band follows you.**
 
@@ -18,14 +18,14 @@ This is **not** playing along to backing tracks.
 | ✅ Architecture and plan | [`ARCHITECTURE.md`](ARCHITECTURE.md) · [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION_PLAN.md) |
 | ✅ Portable safety core — **built and tested** (PANIC, limiter, underrun policy, state machine) | `src/core/`, `tests/` |
 | ✅ MRT2 proven on target hardware — `mrt2_small` generates 48 kHz stereo music | via upstream `hello_mrt2` |
-| ✅ MRT2 backend + JUCE host — **build and run**; Follow streams MRT2 audio | `src/backend/`, `src/app/` |
+| ✅ MRT2 backend + JUCE host — **build and run**; GhostBand streams MRT2 audio | `src/backend/`, `src/app/` |
 | ✅ **Real-time confirmed — 17.17 ms per 40 ms frame (42.9%)** on an **Apple M2 Pro** | measured in-app |
 
-**Phase 0's goal is met: MRT2 generates real-time audio inside Follow.** Generation runs
+**Phase 0's goal is met: MRT2 generates real-time audio inside GhostBand.** Generation runs
 at 17.17 ms against a 40 ms frame budget on an Apple M2 Pro, so `mrt2_small` produces audio
 ~2.3x faster than it plays back. (`mrt2_base` is not real-time on this class of chip.)
 
-**The band is audible on an Apple M2 Pro** — the full chain from MRT2 through Follow's
+**The band is audible on an Apple M2 Pro** — the full chain from MRT2 through GhostBand's
 safety stage to CoreAudio is confirmed working. Nothing has been soak-tested, and no
 device-failure or long-run behaviour has been exercised yet.
 
@@ -62,15 +62,15 @@ uv pip install "magenta-rt[mlx]" "cmake<3.28"
 mrt models init
 mrt models download mrt2_small
 
-# 3. Upstream sanity check. The trim script drops the examples Follow never links
+# 3. Upstream sanity check. The trim script drops the examples GhostBand never links
 #    against (SuperCollider, Max, PD, the React UIs) — they cost GBs of disk to
 #    configure. Reversible with --restore.
 git clone https://github.com/magenta/magenta-realtime.git ~/magenta-realtime
 python3 scripts/trim-mrt2.py ~/magenta-realtime
 cd ~/magenta-realtime && cmake . -B build && cmake --build build --target hello_mrt2 -j10
 
-# 4. Build Follow
-cmake -B build -DFOLLOW_BUILD_APP=ON -DMAGENTA_RT_DIR=~/magenta-realtime
+# 4. Build GhostBand
+cmake -B build -DGHOSTBAND_BUILD_APP=ON -DMAGENTA_RT_DIR=~/magenta-realtime
 cmake --build build -j
 ```
 
@@ -82,7 +82,7 @@ TensorFlow repository, and configure alone took 649 s on an M-series MacBook Pro
 ## Architecture in one paragraph
 
 A JUCE audio callback pulls already-generated 48 kHz stereo audio out of MRT2's lock-free
-ring buffer, passes it through Follow's own fade/limiter safety stage, and writes it to a
+ring buffer, passes it through GhostBand's own fade/limiter safety stage, and writes it to a
 chosen output pair. A separate control plane translates MIDI, footswitches and section
 changes into atomic MRT2 parameter writes. Nothing in the audio path allocates, locks or
 waits. `src/core/` depends on **nothing but the C++20 standard library** — that is what
@@ -95,7 +95,7 @@ See [`ARCHITECTURE.md`](ARCHITECTURE.md).
 ## Design commitments
 
 - **The musician leads.** The AI is additive and never the star.
-- **Voice and guitar never route through Follow.** If the app dies, the show continues.
+- **Voice and guitar never route through GhostBand.** If the app dies, the show continues.
 - **One stomp beats ten clicks.** Performance Mode must work without the trackpad.
 - **Fail silently.** PANIC fades the AI out in ~30 ms and always works.
 - **Nothing is faked.** A control that does not work is absent, disabled, or labelled.
@@ -104,7 +104,7 @@ See [`ARCHITECTURE.md`](ARCHITECTURE.md).
 
 ## Licences
 
-Follow is Apache-2.0. MRT2 code is Apache-2.0; MRT2 **model weights are CC-BY-4.0 and are
+GhostBand is Apache-2.0. MRT2 code is Apache-2.0; MRT2 **model weights are CC-BY-4.0 and are
 not distributed with this repository**. JUCE is dual GPLv3 / commercial and carries an
 unresolved commercial-distribution question.
 

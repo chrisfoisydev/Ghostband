@@ -1,15 +1,15 @@
-// Follow — live AI accompaniment for singer-songwriters.
-// Copyright 2026 Follow contributors. Licensed under Apache-2.0.
+// GhostBand — live AI accompaniment for singer-songwriters.
+// Copyright 2026 GhostBand contributors. Licensed under Apache-2.0.
 
 #pragma once
 
-#include "FollowConstants.h"
+#include "GhostBandConstants.h"
 
 #include <atomic>
 #include <cstddef>
 #include <cstdint>
 
-namespace follow::core {
+namespace ghostband::core {
 
 /// Health of the generated-audio path, as judged from underrun behaviour.
 enum class Health {
@@ -211,4 +211,4 @@ private:
     std::atomic<Health> health_{Health::Healthy};
 };
 
-} // namespace follow::core
+} // namespace ghostband::core

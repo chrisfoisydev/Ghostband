@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Trim magenta-realtime's root CMakeLists.txt down to core + hello_mrt2.
 
-Phase 0 of Follow needs exactly two things from upstream: the magentart::core
+Phase 0 of GhostBand needs exactly two things from upstream: the magentart::core
 inference library, and the hello_mrt2 CLI used as a sanity check. Upstream's root
 CMakeLists.txt additionally configures the AUv3 plugin, the standalone app, the jam
 and collider demos, Max/PD/SuperCollider externals, and three npm/React UI builds.
@@ -21,7 +21,7 @@ import sys
 import shutil
 from pathlib import Path
 
-# Everything Follow does NOT need. `core` and `examples/hello_mrt2` are absent by design.
+# Everything GhostBand does NOT need. `core` and `examples/hello_mrt2` are absent by design.
 DROP_SUBDIRS = [
     "examples/mrt2/auv3",
     "examples/mrt2/standalone",
@@ -40,7 +40,7 @@ DROP_PREFIXES = [
     "add_dependencies(build_mrt2_ui",
 ]
 
-MARKER = "# [follow-trim]"
+MARKER = "# [ghostband-trim]"
 
 
 def main() -> int:

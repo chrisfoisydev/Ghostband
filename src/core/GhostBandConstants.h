@@ -1,5 +1,5 @@
-// Follow — live AI accompaniment for singer-songwriters.
-// Copyright 2026 Follow contributors. Licensed under Apache-2.0.
+// GhostBand — live AI accompaniment for singer-songwriters.
+// Copyright 2026 GhostBand contributors. Licensed under Apache-2.0.
 
 #pragma once
 
@@ -9,10 +9,10 @@
 ///
 /// Verified against upstream `core/include/magentart/mlx_engine.h` at commit 694a545
 /// (see docs/MRT2_API_NOTES.md §3). We redeclare rather than include the MRT2 header
-/// because `follow::core` must stay buildable on machines where MRT2 cannot compile at
+/// because `ghostband::core` must stay buildable on machines where MRT2 cannot compile at
 /// all. `Mrt2Backend` static_asserts these against the real MRT2 constants, so any
 /// upstream change fails the build loudly on macOS rather than silently detuning us.
-namespace follow::core {
+namespace ghostband::core {
 
 /// MRT2 generates 48 kHz stereo. Not configurable: it is a property of the model.
 inline constexpr int kSampleRate = 48000;
@@ -27,7 +27,7 @@ inline constexpr std::size_t kNumChannels = 2;
 inline constexpr std::size_t kMaxPrompts = 6;
 
 /// MRT2 accepts 132 "pitches": 128 MIDI notes + 4 drum triggers.
-/// Follow clamps musical input to 0..127 and reserves the rest.
+/// GhostBand clamps musical input to 0..127 and reserves the rest.
 inline constexpr int kNumMidiNotes = 128;
 inline constexpr int kNumDrumTriggers = 4;
 inline constexpr int kTotalPitches = kNumMidiNotes + kNumDrumTriggers;
@@ -49,4 +49,4 @@ inline constexpr std::size_t kDefaultGenerationBufferSamples = 2 * kFrameSamples
 /// Limiter ceiling. -1 dBFS leaves headroom for inter-sample peaks after the converter.
 inline constexpr float kDefaultLimiterCeilingDb = -1.0f;
 
-} // namespace follow::core
+} // namespace ghostband::core

@@ -1,18 +1,18 @@
-// Follow — live AI accompaniment for singer-songwriters.
-// Copyright 2026 Follow contributors. Licensed under Apache-2.0.
+// GhostBand — live AI accompaniment for singer-songwriters.
+// Copyright 2026 GhostBand contributors. Licensed under Apache-2.0.
 
 #pragma once
 
 #include "Diagnostics.h"
 #include "FadeEnvelope.h"
-#include "FollowConstants.h"
+#include "GhostBandConstants.h"
 #include "SafetyLimiter.h"
 #include "SafetyMonitor.h"
 
 #include <atomic>
 #include <cstddef>
 
-namespace follow::core {
+namespace ghostband::core {
 
 /// Everything that happens to generated audio between MRT2 and the audio device.
 ///
@@ -134,4 +134,4 @@ private:
     bool prepared_ = false;
 };
 
-} // namespace follow::core
+} // namespace ghostband::core

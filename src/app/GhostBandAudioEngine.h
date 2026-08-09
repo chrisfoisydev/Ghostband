@@ -1,5 +1,5 @@
-// Follow — live AI accompaniment for singer-songwriters.
-// Copyright 2026 Follow contributors. Licensed under Apache-2.0.
+// GhostBand — live AI accompaniment for singer-songwriters.
+// Copyright 2026 GhostBand contributors. Licensed under Apache-2.0.
 //
 // ⚠️ macOS-only, NEVER COMPILED as of this commit. See KNOWN_ISSUES.md §1.
 
@@ -15,16 +15,16 @@
 #include <memory>
 #include <vector>
 
-namespace follow::app {
+namespace ghostband::app {
 
 /// Owns the audio device, the generation backend, and the safety stage; nothing else.
 ///
 /// The UI talks to this class and never to the backend directly, so there is exactly one
 /// place where the audio callback's invariants are enforced.
-class FollowAudioEngine : private juce::AudioIODeviceCallback {
+class GhostBandAudioEngine : private juce::AudioIODeviceCallback {
 public:
-    FollowAudioEngine();
-    ~FollowAudioEngine() override;
+    GhostBandAudioEngine();
+    ~GhostBandAudioEngine() override;
 
     /// Bring up the audio device. Stereo out, 48 kHz requested.
     /// Returns an error string on failure, or an empty string on success.
@@ -73,7 +73,7 @@ public:
     /// which case the UI must not claim an AI band is available.
     bool hasRealBackend() const noexcept;
 
-    /// Non-empty when the device is not at 48 kHz — MRT2 generates 48 kHz and Follow does
+    /// Non-empty when the device is not at 48 kHz — MRT2 generates 48 kHz and GhostBand does
     /// not resample, so this is surfaced rather than silently accepted.
     juce::String sampleRateWarning() const;
 
@@ -111,7 +111,7 @@ private:
 
     std::unique_ptr<juce::ThreadPool> load_pool_;
 
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(FollowAudioEngine)
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(GhostBandAudioEngine)
 };
 
-} // namespace follow::app
+} // namespace ghostband::app

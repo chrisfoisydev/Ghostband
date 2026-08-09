@@ -1,6 +1,6 @@
-# CLAUDE.md — Persistent project rules for Follow
+# CLAUDE.md — Persistent project rules for GhostBand
 
-Follow is a live-performance macOS app that drives Magenta RealTime 2 (MRT2) as an
+GhostBand is a live-performance macOS app that drives Magenta RealTime 2 (MRT2) as an
 AI backing band for a solo singer-songwriter. Read `ARCHITECTURE.md` before changing
 anything structural, and `docs/MRT2_API_NOTES.md` before touching anything MRT2-shaped.
 
@@ -32,7 +32,7 @@ touch the UI, load a model, or call anything with unbounded latency.
 - Cross-thread state is `std::atomic` with explicit memory ordering.
 - Buffers are preallocated at `prepare()` time and sized to the max block.
 - The audio callback may call exactly two things: the backend's `readStereo()` (verified
-  lock-free upstream) and `follow::core::AiOutputStage::process()`.
+  lock-free upstream) and `ghostband::core::AiOutputStage::process()`.
 - Any non-obvious real-time decision gets a comment explaining *why*, not *what*.
 - Audio-device errors and MIDI disconnects are **expected runtime conditions**, not
   exceptional ones. Handle them; do not assert on them.
@@ -45,13 +45,13 @@ touch the UI, load a model, or call anything with unbounded latency.
   outside `src/backend/Mrt2Backend.*`.
 - Do not reimplement what MRT2 already provides (inference thread, ring buffer, gain
   smoothing, underrun counting, recording buffer). See `docs/MRT2_API_NOTES.md` §7.
-- PANIC lives in `follow::core` and must work when MRT2 is hung. Never delegate it to
+- PANIC lives in `ghostband::core` and must work when MRT2 is hung. Never delegate it to
   `set_mute()` alone.
 
 ## Product rules
 
 - The musician leads; the AI is additive and never in the primary signal path.
-- Voice and guitar must keep working with Follow dead. No feature may violate this.
+- Voice and guitar must keep working with GhostBand dead. No feature may violate this.
 - Foot control beats mouse control. Performance Mode must be usable without the trackpad.
 - Prompts describe **musical attributes**, never "in the style of <living artist>".
 - `AI Intensity` (how much the band plays) and `AI Output Level` (how loud) are different

@@ -1,12 +1,12 @@
-# Follow — live AI accompaniment for singer-songwriters.
-# Copyright 2026 Follow contributors. Licensed under Apache-2.0.
+# GhostBand — live AI accompaniment for singer-songwriters.
+# Copyright 2026 GhostBand contributors. Licensed under Apache-2.0.
 
 cmake_minimum_required(VERSION 3.24)
 
-# C is required even though Follow itself is pure C++20: JUCE hard-errors without a C
+# C is required even though GhostBand itself is pure C++20: JUCE hard-errors without a C
 # compiler ("A C compiler is required to build targets that depend on JUCE"), and several
 # of MRT2's transitive dependencies (TFLite, ruy, flatbuffers) contain C sources.
-project(Follow VERSION 0.1.0 LANGUAGES C CXX)
+project(GhostBand VERSION 0.1.0 LANGUAGES C CXX)
 
 # On Apple, MRT2's inference loop needs an Objective-C autorelease pool per iteration and
 # JUCE's platform layer is Objective-C++. Upstream magenta-realtime declares
@@ -33,20 +33,20 @@ endif()
 # ------------------------------------------------------------------------------
 # The JUCE host and the MRT2 backend are macOS/Apple-Silicon targets: MRT2's C++ engine
 # hard-fails on non-Apple platforms by upstream design (MLX/Metal + Apple frameworks).
-# `follow_core` and its tests are deliberately free of both, so they build and run
+# `ghostband_core` and its tests are deliberately free of both, so they build and run
 # anywhere — which is what makes the safety logic testable in CI. See ARCHITECTURE.md §2.1.
-option(FOLLOW_BUILD_APP "Build the JUCE standalone application (macOS only)" OFF)
-option(FOLLOW_BUILD_TESTS "Build unit tests" ON)
+option(GHOSTBAND_BUILD_APP "Build the JUCE standalone application (macOS only)" OFF)
+option(GHOSTBAND_BUILD_TESTS "Build unit tests" ON)
 set(MAGENTA_RT_DIR "" CACHE PATH "Path to a magenta/magenta-realtime checkout")
 
 # ------------------------------------------------------------------------------
 # Warnings — CLAUDE.md forbids silencing them, so they are on from the start.
 # ------------------------------------------------------------------------------
-add_library(follow_warnings INTERFACE)
+add_library(ghostband_warnings INTERFACE)
 if(MSVC)
-    target_compile_options(follow_warnings INTERFACE /W4)
+    target_compile_options(ghostband_warnings INTERFACE /W4)
 else()
-    target_compile_options(follow_warnings INTERFACE
+    target_compile_options(ghostband_warnings INTERFACE
         -Wall -Wextra -Wpedantic
         -Wshadow -Wconversion -Wsign-conversion
         -Wnon-virtual-dtor -Woverloaded-virtual
@@ -54,36 +54,36 @@ else()
 endif()
 
 # Optional sanitizers for the portable core (CLAUDE.md: "use sanitizers where useful").
-# Usage: cmake -B build-asan -DFOLLOW_SANITIZE=address,undefined
-set(FOLLOW_SANITIZE "" CACHE STRING "Comma-separated sanitizers, e.g. address,undefined")
-if(FOLLOW_SANITIZE)
-    add_compile_options(-fsanitize=${FOLLOW_SANITIZE} -fno-omit-frame-pointer)
-    add_link_options(-fsanitize=${FOLLOW_SANITIZE})
+# Usage: cmake -B build-asan -DGHOSTBAND_SANITIZE=address,undefined
+set(GHOSTBAND_SANITIZE "" CACHE STRING "Comma-separated sanitizers, e.g. address,undefined")
+if(GHOSTBAND_SANITIZE)
+    add_compile_options(-fsanitize=${GHOSTBAND_SANITIZE} -fno-omit-frame-pointer)
+    add_link_options(-fsanitize=${GHOSTBAND_SANITIZE})
 endif()
 
 # ------------------------------------------------------------------------------
-# follow_core — portable. C++20 standard library only. No JUCE, no MRT2, no platform.
+# ghostband_core — portable. C++20 standard library only. No JUCE, no MRT2, no platform.
 # ------------------------------------------------------------------------------
-add_library(follow_core STATIC
+add_library(ghostband_core STATIC
     src/core/EngineState.cpp
     src/core/SafetyLimiter.cpp
     src/core/SafetyMonitor.cpp
     src/core/AiOutputStage.cpp
     src/core/Logging.cpp
 )
-add_library(follow::core ALIAS follow_core)
+add_library(ghostband::core ALIAS ghostband_core)
 
-target_include_directories(follow_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
-target_link_libraries(follow_core PRIVATE follow_warnings)
-target_compile_features(follow_core PUBLIC cxx_std_20)
+target_include_directories(ghostband_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
+target_link_libraries(ghostband_core PRIVATE ghostband_warnings)
+target_compile_features(ghostband_core PUBLIC cxx_std_20)
 
 find_package(Threads REQUIRED)
-target_link_libraries(follow_core PUBLIC Threads::Threads)
+target_link_libraries(ghostband_core PUBLIC Threads::Threads)
 
 # ------------------------------------------------------------------------------
 # Tests
 # ------------------------------------------------------------------------------
-if(FOLLOW_BUILD_TESTS)
+if(GHOSTBAND_BUILD_TESTS)
     enable_testing()
     add_subdirectory(tests)
 endif()
@@ -91,16 +91,16 @@ endif()
 # ------------------------------------------------------------------------------
 # Application (macOS only)
 # ------------------------------------------------------------------------------
-if(FOLLOW_BUILD_APP)
+if(GHOSTBAND_BUILD_APP)
     if(NOT APPLE)
         message(FATAL_ERROR
-            "FOLLOW_BUILD_APP requires macOS on Apple Silicon.\n"
+            "GHOSTBAND_BUILD_APP requires macOS on Apple Silicon.\n"
             "Magenta RealTime 2's C++ engine is macOS-only by upstream design "
             "(MLX/Metal + Apple frameworks); there is no Linux or x86 real-time path.\n"
-            "Configure without -DFOLLOW_BUILD_APP to build and test follow_core only.")
+            "Configure without -DGHOSTBAND_BUILD_APP to build and test ghostband_core only.")
     endif()
     add_subdirectory(src/app)
 else()
-    message(STATUS "Follow: building portable core + tests only "
-                   "(set -DFOLLOW_BUILD_APP=ON on macOS for the full app)")
+    message(STATUS "GhostBand: building portable core + tests only "
+                   "(set -DGHOSTBAND_BUILD_APP=ON on macOS for the full app)")
 endif()

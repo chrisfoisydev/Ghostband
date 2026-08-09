@@ -1,15 +1,15 @@
-// Follow — live AI accompaniment for singer-songwriters.
-// Copyright 2026 Follow contributors. Licensed under Apache-2.0.
+// GhostBand — live AI accompaniment for singer-songwriters.
+// Copyright 2026 GhostBand contributors. Licensed under Apache-2.0.
 //
 // ⚠️ macOS-only, NEVER COMPILED as of this commit. See KNOWN_ISSUES.md §1.
 
 #pragma once
 
-#include "FollowAudioEngine.h"
+#include "GhostBandAudioEngine.h"
 
 #include <juce_gui_extra/juce_gui_extra.h>
 
-namespace follow::app {
+namespace ghostband::app {
 
 /// Phase 0 UI. Deliberately minimal.
 ///
@@ -40,7 +40,7 @@ private:
     static juce::File defaultResourceDir();
     static juce::File defaultModelPath(const juce::String& modelName);
 
-    FollowAudioEngine engine_;
+    GhostBandAudioEngine engine_;
 
     juce::TextButton load_button_{"LOAD MODEL"};
     juce::TextButton start_button_{"START"};
@@ -65,4 +65,4 @@ private:
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MainComponent)
 };
 
-} // namespace follow::app
+} // namespace ghostband::app

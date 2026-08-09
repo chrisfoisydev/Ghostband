@@ -1,5 +1,5 @@
-// Follow — live AI accompaniment for singer-songwriters.
-// Copyright 2026 Follow contributors. Licensed under Apache-2.0.
+// GhostBand — live AI accompaniment for singer-songwriters.
+// Copyright 2026 GhostBand contributors. Licensed under Apache-2.0.
 
 #include "TestMain.h"
 #include "backend/NullBackend.h"
@@ -8,8 +8,8 @@
 
 #include <vector>
 
-using namespace follow::core;
-using follow::backend::NullBackend;
+using namespace ghostband::core;
+using ghostband::backend::NullBackend;
 
 TEST_MAIN_BEGIN("Backend & Logging")
 

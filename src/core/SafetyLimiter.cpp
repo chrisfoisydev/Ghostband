@@ -1,12 +1,12 @@
-// Follow — live AI accompaniment for singer-songwriters.
-// Copyright 2026 Follow contributors. Licensed under Apache-2.0.
+// GhostBand — live AI accompaniment for singer-songwriters.
+// Copyright 2026 GhostBand contributors. Licensed under Apache-2.0.
 
 #include "SafetyLimiter.h"
 
 #include <algorithm>
 #include <cmath>
 
-namespace follow::core {
+namespace ghostband::core {
 
 namespace {
 /// Lookahead == attack time. Long enough to reduce gain smoothly ahead of a transient,
@@ -144,4 +144,4 @@ SafetyLimiter::Status SafetyLimiter::status() const noexcept {
     return gainReductionDb() > 0.1f ? Status::Limiting : Status::Safe;
 }
 
-} // namespace follow::core
+} // namespace ghostband::core

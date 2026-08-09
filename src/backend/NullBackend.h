@@ -1,14 +1,14 @@
-// Follow — live AI accompaniment for singer-songwriters.
-// Copyright 2026 Follow contributors. Licensed under Apache-2.0.
+// GhostBand — live AI accompaniment for singer-songwriters.
+// Copyright 2026 GhostBand contributors. Licensed under Apache-2.0.
 
 #pragma once
 
-#include "../core/FollowConstants.h"
+#include "../core/GhostBandConstants.h"
 #include "../core/IGenerationBackend.h"
 
 #include <atomic>
 
-namespace follow::backend {
+namespace ghostband::backend {
 
 /// A backend that generates nothing, and says so.
 ///
@@ -129,4 +129,4 @@ private:
     std::atomic<bool> notes_[core::kNumMidiNotes] = {};
 };
 
-} // namespace follow::backend
+} // namespace ghostband::backend

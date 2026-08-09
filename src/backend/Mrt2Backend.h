@@ -1,5 +1,5 @@
-// Follow — live AI accompaniment for singer-songwriters.
-// Copyright 2026 Follow contributors. Licensed under Apache-2.0.
+// GhostBand — live AI accompaniment for singer-songwriters.
+// Copyright 2026 GhostBand contributors. Licensed under Apache-2.0.
 
 #pragma once
 
@@ -15,10 +15,10 @@
 // ============================================================================
 
 #if !defined(__APPLE__)
-#error "Mrt2Backend is macOS-only. Build follow_core without FOLLOW_BUILD_APP elsewhere."
+#error "Mrt2Backend is macOS-only. Build ghostband_core without GHOSTBAND_BUILD_APP elsewhere."
 #endif
 
-#include "../core/FollowConstants.h"
+#include "../core/GhostBandConstants.h"
 #include "../core/IGenerationBackend.h"
 
 #include <magentart/realtime_runner.h>
@@ -26,15 +26,15 @@
 #include <atomic>
 #include <string>
 
-namespace follow::backend {
+namespace ghostband::backend {
 
-/// The **only** place in Follow where `magentart::` symbols appear.
+/// The **only** place in GhostBand where `magentart::` symbols appear.
 ///
 /// Keeping the MRT2 surface in one translation unit means an upstream API break is a
 /// compile error in one file rather than a scattered rewrite — and it is what allows the
-/// rest of Follow to build and be tested on machines where MRT2 cannot compile at all.
+/// rest of GhostBand to build and be tested on machines where MRT2 cannot compile at all.
 ///
-/// Follow deliberately does **not** reimplement what `RealtimeRunner` already provides:
+/// GhostBand deliberately does **not** reimplement what `RealtimeRunner` already provides:
 /// the 25 Hz inference thread, the lock-free stereo ring buffers, gain smoothing,
 /// underrun counting, and the recording buffer are all upstream's. Duplicating them
 /// would add latency and a second place for faults to hide.
@@ -113,4 +113,4 @@ private:
     std::atomic<bool> assets_ready_{false};
 };
 
-} // namespace follow::backend
+} // namespace ghostband::backend

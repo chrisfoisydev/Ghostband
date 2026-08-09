@@ -1,5 +1,5 @@
-// Follow — live AI accompaniment for singer-songwriters.
-// Copyright 2026 Follow contributors. Licensed under Apache-2.0.
+// GhostBand — live AI accompaniment for singer-songwriters.
+// Copyright 2026 GhostBand contributors. Licensed under Apache-2.0.
 
 #include "Logging.h"
 
@@ -10,7 +10,7 @@
 #include <iomanip>
 #include <sstream>
 
-namespace follow::core {
+namespace ghostband::core {
 
 const char* toString(LogLevel l) noexcept {
     switch (l) {
@@ -179,4 +179,4 @@ void Logger::reset() {
     min_level_ = LogLevel::Info;
 }
 
-} // namespace follow::core
+} // namespace ghostband::core

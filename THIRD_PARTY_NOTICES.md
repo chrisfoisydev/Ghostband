@@ -1,6 +1,6 @@
 # Third-Party Notices
 
-Follow depends on third-party software and, at runtime, on third-party model weights that
+GhostBand depends on third-party software and, at runtime, on third-party model weights that
 the **user downloads themselves**. Nothing in this repository bundles model weights.
 
 > ⚠️ **This document is an engineering record, not legal advice.** Items marked
@@ -31,7 +31,7 @@ the **user downloads themselves**. Nothing in this repository bundles model weig
     your users are solely responsible for outputs and their subsequent uses."
   - Users must not generate content that infringes the rights of others.
   - Distributed "AS IS", without warranties.
-- **Follow's policy:** **we do not bundle, mirror, or redistribute weights.** First run
+- **GhostBand's policy:** **we do not bundle, mirror, or redistribute weights.** First run
   detects whether MRT2 resources are present and, if not, tells the user the exact
   official command to fetch them. This keeps us out of the redistribution question
   entirely.
@@ -50,16 +50,16 @@ the **user downloads themselves**. Nothing in this repository bundles model weig
   versions also offer a royalty-free tier for small revenue, with terms that vary by
   version.
 - 🚩 **LEGAL REVIEW — the significant commercial question in this project.**
-  - Shipping Follow as **closed-source commercial software requires a paid JUCE licence**
+  - Shipping GhostBand as **closed-source commercial software requires a paid JUCE licence**
     (or qualifying under the current free tier, subject to its revenue cap and splash-screen
     conditions).
-  - Under GPLv3 instead, Follow itself must be GPLv3, which propagates to the whole app.
+  - Under GPLv3 instead, GhostBand itself must be GPLv3, which propagates to the whole app.
   - Interaction to check: **Apache 2.0 code (MRT2) is compatible with GPLv3** (one-way:
-    Apache-2.0 → GPLv3 is fine; the reverse is not). So a GPLv3 Follow linking MRT2 is
-    permissible; a proprietary Follow linking MRT2 is also permissible — but the JUCE
+    Apache-2.0 → GPLv3 is fine; the reverse is not). So a GPLv3 GhostBand linking MRT2 is
+    permissible; a proprietary GhostBand linking MRT2 is also permissible — but the JUCE
     choice is what decides the app's own licence.
   - **Decide before Phase 5 packaging.** The decision affects nothing architecturally —
-    `follow::core` is JUCE-free, so a JUCE replacement is possible — but it affects
+    `ghostband::core` is JUCE-free, so a JUCE replacement is possible — but it affects
     release economics.
 
 ## 4. Transitive dependencies of MRT2 (built from source by upstream CMake)
@@ -78,9 +78,9 @@ Pulled in by upstream's `FetchContent`; we link the result. Not vendored by us.
   particular drags in a long transitive list — generate it mechanically at packaging time
   rather than by hand.
 
-## 5. Follow's own dependencies
+## 5. GhostBand's own dependencies
 
-`follow::core` and its tests depend on **nothing but the C++20 standard library**. The
+`ghostband::core` and its tests depend on **nothing but the C++20 standard library**. The
 test harness is ~60 lines in `tests/TestMain.h`, written for this project, specifically to
 avoid adding a test-framework dependency and its notice obligations.
 
@@ -88,7 +88,7 @@ avoid adding a test-framework dependency and its notice obligations.
 
 ## 6. Attribution surface required in-product
 
-Before any release, Follow must ship a Credits screen containing at minimum:
+Before any release, GhostBand must ship a Credits screen containing at minimum:
 
 - "Powered by Magenta RealTime 2 — © 2026 Google LLC. Code under Apache 2.0; model weights
   under CC-BY-4.0." with links to both licences and to the model card.
@@ -100,6 +100,6 @@ Before any release, Follow must ship a Credits screen containing at minimum:
 1. JUCE licence tier for commercial release (§3) — **decide before Phase 5**.
 2. In-product CC-BY attribution wording if weights are ever bundled (§2).
 3. Whether the MRT2 terms' "do not generate infringing content" clause needs to appear in
-   Follow's own EULA, and how it is presented to a performer using the app live.
-4. Whether performances/recordings made with Follow need any disclosure — our reading of
+   GhostBand's own EULA, and how it is presented to a performer using the app live.
+4. Whether performances/recordings made with GhostBand need any disclosure — our reading of
    "Google claims no rights in outputs" says no, but confirm before marketing claims.

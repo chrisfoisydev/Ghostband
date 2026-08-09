@@ -1,36 +1,36 @@
-// Follow — live AI accompaniment for singer-songwriters.
-// Copyright 2026 Follow contributors. Licensed under Apache-2.0.
+// GhostBand — live AI accompaniment for singer-songwriters.
+// Copyright 2026 GhostBand contributors. Licensed under Apache-2.0.
 //
 // ⚠️ macOS-only, NEVER COMPILED as of this commit. See KNOWN_ISSUES.md §1.
 
-#include "FollowAudioEngine.h"
+#include "GhostBandAudioEngine.h"
 
 #include "backend/Mrt2Backend.h"
 #include "backend/NullBackend.h"
-#include "core/FollowConstants.h"
+#include "core/GhostBandConstants.h"
 #include "core/Logging.h"
 
-namespace follow::app {
+namespace ghostband::app {
 
 using core::LogCategory;
 using core::Logger;
 
-FollowAudioEngine::FollowAudioEngine() {
+GhostBandAudioEngine::GhostBandAudioEngine() {
     // Start on the honest backend: no model is loaded yet, and NullBackend reports that
     // truthfully rather than pretending a band exists.
     backend_ = std::make_shared<backend::NullBackend>();
     load_pool_ = std::make_unique<juce::ThreadPool>(1);
 }
 
-FollowAudioEngine::~FollowAudioEngine() {
+GhostBandAudioEngine::~GhostBandAudioEngine() {
     device_manager_.removeAudioCallback(this);
     device_manager_.closeAudioDevice();
     load_pool_.reset();
     backend_.reset();
 }
 
-juce::String FollowAudioEngine::initialise() {
-    // Stereo out, no input in Phase 0: Follow is additive and must not sit in the
+juce::String GhostBandAudioEngine::initialise() {
+    // Stereo out, no input in Phase 0: GhostBand is additive and must not sit in the
     // performer's signal path. Guitar input arrives in Phase 3 as a tap, never an insert.
     const juce::String error = device_manager_.initialiseWithDefaultDevices(0, 2);
     if (error.isNotEmpty()) {
@@ -39,7 +39,7 @@ juce::String FollowAudioEngine::initialise() {
         return error;
     }
 
-    // Ask for 48 kHz explicitly; MRT2 generates 48 kHz and Follow does not resample.
+    // Ask for 48 kHz explicitly; MRT2 generates 48 kHz and GhostBand does not resample.
     if (auto* device = device_manager_.getCurrentAudioDevice()) {
         auto setup = device_manager_.getAudioDeviceSetup();
         if (setup.sampleRate != static_cast<double>(core::kSampleRate)) {
@@ -52,7 +52,7 @@ juce::String FollowAudioEngine::initialise() {
     return {};
 }
 
-void FollowAudioEngine::audioDeviceAboutToStart(juce::AudioIODevice* device) {
+void GhostBandAudioEngine::audioDeviceAboutToStart(juce::AudioIODevice* device) {
     const double sr = device->getCurrentSampleRate();
     const int block = device->getCurrentBufferSizeSamples();
 
@@ -82,11 +82,11 @@ void FollowAudioEngine::audioDeviceAboutToStart(juce::AudioIODevice* device) {
     }
 }
 
-void FollowAudioEngine::audioDeviceStopped() {
+void GhostBandAudioEngine::audioDeviceStopped() {
     Logger::instance().info(LogCategory::Audio, "audio device stopped");
 }
 
-void FollowAudioEngine::audioDeviceError(const juce::String& errorMessage) {
+void GhostBandAudioEngine::audioDeviceError(const juce::String& errorMessage) {
     // An expected runtime condition, not an exceptional one: interfaces get unplugged.
     // Fade the AI out so a half-configured device cannot emit noise, and let the
     // performer carry on — their voice and guitar never routed through us anyway.
@@ -95,7 +95,7 @@ void FollowAudioEngine::audioDeviceError(const juce::String& errorMessage) {
     output_stage_.panic();
 }
 
-void FollowAudioEngine::audioDeviceIOCallbackWithContext(
+void GhostBandAudioEngine::audioDeviceIOCallbackWithContext(
     const float* const*, int,
     float* const* outputChannelData, int numOutputChannels, int numSamples,
     const juce::AudioIODeviceCallbackContext&) {
@@ -133,7 +133,7 @@ void FollowAudioEngine::audioDeviceIOCallbackWithContext(
     // ---- END REAL-TIME SECTION ---------------------------------------------
 }
 
-void FollowAudioEngine::loadModelAsync(const juce::File& resourceDir,
+void GhostBandAudioEngine::loadModelAsync(const juce::File& resourceDir,
                                        const juce::File& modelPath,
                                        std::function<void(bool, juce::String)> onFinished) {
     if (!state_.transitionTo(core::EngineState::Loading)) {
@@ -192,7 +192,7 @@ void FollowAudioEngine::loadModelAsync(const juce::File& resourceDir,
     });
 }
 
-void FollowAudioEngine::startGeneration() {
+void GhostBandAudioEngine::startGeneration() {
     if (!state_.transitionTo(core::EngineState::Running)) return;
     backend_->start();
     // Order matters: arm the monitor only after the backend is actually running, so the
@@ -200,7 +200,7 @@ void FollowAudioEngine::startGeneration() {
     output_stage_.setGenerating(true);
 }
 
-void FollowAudioEngine::stopGeneration() {
+void GhostBandAudioEngine::stopGeneration() {
     if (!state_.transitionTo(core::EngineState::Ready)) return;
     // Disarm FIRST. Once stopped, the backend's ring buffer drains and readStereo()
     // correctly reports underruns on every block; policing those would latch Degraded
@@ -210,7 +210,7 @@ void FollowAudioEngine::stopGeneration() {
     backend_->allNotesOff();
 }
 
-void FollowAudioEngine::panic() {
+void GhostBandAudioEngine::panic() {
     // 1. Our fade. This is the guarantee: it gates audio we already hold, so it works
     //    even if the MRT2 inference thread is wedged.
     output_stage_.panic();
@@ -221,37 +221,37 @@ void FollowAudioEngine::panic() {
     backend_->allNotesOff();
 }
 
-void FollowAudioEngine::clearPanic() {
+void GhostBandAudioEngine::clearPanic() {
     output_stage_.clearPanic();
     backend_->setMute(false);
     Logger::instance().info(LogCategory::Panic, "PANIC released");
 }
 
-void FollowAudioEngine::setTextPrompt(const juce::String& prompt) {
+void GhostBandAudioEngine::setTextPrompt(const juce::String& prompt) {
     backend_->setTextPrompt(prompt.toStdString());
 }
 
-core::PromptStatus FollowAudioEngine::promptStatus() const {
+core::PromptStatus GhostBandAudioEngine::promptStatus() const {
     return backend_->promptStatus();
 }
 
-bool FollowAudioEngine::hasRealBackend() const noexcept {
+bool GhostBandAudioEngine::hasRealBackend() const noexcept {
     return backend_->isRealBackend();
 }
 
-void FollowAudioEngine::recoverFromDegraded() {
+void GhostBandAudioEngine::recoverFromDegraded() {
     output_stage_.recoverFromDegraded();
     Logger::instance().info(LogCategory::Generation, "recovered from degraded state");
 }
 
-juce::String FollowAudioEngine::sampleRateWarning() const {
+juce::String GhostBandAudioEngine::sampleRateWarning() const {
     const double sr = current_sample_rate_.load(std::memory_order_relaxed);
     if (sr <= 0.0 || sr == static_cast<double>(core::kSampleRate)) return {};
     return "Device is at " + juce::String(sr, 0) + " Hz. MRT2 generates 48 000 Hz and "
-           "Follow does not resample — set the interface to 48 kHz.";
+           "GhostBand does not resample — set the interface to 48 kHz.";
 }
 
-core::DiagnosticsSnapshot FollowAudioEngine::diagnostics() const {
+core::DiagnosticsSnapshot GhostBandAudioEngine::diagnostics() const {
     auto snap = output_stage_.diagnostics().snapshot();
     snap.engineState = state_.state();
 
@@ -268,4 +268,4 @@ core::DiagnosticsSnapshot FollowAudioEngine::diagnostics() const {
     return snap;
 }
 
-} // namespace follow::app
+} // namespace ghostband::app

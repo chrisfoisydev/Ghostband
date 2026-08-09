@@ -1,14 +1,14 @@
-// Follow — live AI accompaniment for singer-songwriters.
-// Copyright 2026 Follow contributors. Licensed under Apache-2.0.
+// GhostBand — live AI accompaniment for singer-songwriters.
+// Copyright 2026 GhostBand contributors. Licensed under Apache-2.0.
 //
 // ⚠️ macOS-only, NEVER COMPILED as of this commit. See KNOWN_ISSUES.md §1.
 
 #include "MainComponent.h"
 
-#include "core/FollowConstants.h"
+#include "core/GhostBandConstants.h"
 #include "core/Logging.h"
 
-namespace follow::app {
+namespace ghostband::app {
 
 namespace {
 
@@ -103,7 +103,7 @@ MainComponent::MainComponent() {
 
     device_selector_ = std::make_unique<juce::AudioDeviceSelectorComponent>(
         engine_.deviceManager(),
-        /*minInput*/ 0, /*maxInput*/ 0,   // Phase 0 has no input: Follow is additive only
+        /*minInput*/ 0, /*maxInput*/ 0,   // Phase 0 has no input: GhostBand is additive only
         /*minOutput*/ 2, /*maxOutput*/ 2,
         /*showMidi*/ false,               // MIDI arrives in Phase 1, so it is absent, not fake
         /*showMidiOutput*/ false,
@@ -290,4 +290,4 @@ void MainComponent::resized() {
     if (device_selector_) device_selector_->setBounds(lower);
 }
 
-} // namespace follow::app
+} // namespace ghostband::app

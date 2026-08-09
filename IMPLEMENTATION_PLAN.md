@@ -1,4 +1,4 @@
-# Follow — Implementation Plan
+# GhostBand — Implementation Plan
 
 Status legend: ✅ done · 🟡 in progress · ⚠️ written but unverified · ❌ not started · 🚫 blocked
 
@@ -18,16 +18,16 @@ application.* Not "the UI exists."
 | 0.1 | Inspect environment, confirm target hardware | ✅ done — **result: not Apple Silicon**, see below |
 | 0.2 | Inspect pinned MRT2 repo + docs + C++ examples | ✅ done — `docs/MRT2_API_NOTES.md` |
 | 0.3 | Identify exact APIs for streaming, MIDI steering, prompts, audio, model load/state | ✅ done — `docs/MRT2_API_NOTES.md` §4–6 |
-| 0.4 | Document native vs. Follow-implemented | ✅ done — `docs/MRT2_API_NOTES.md` §7 |
+| 0.4 | Document native vs. GhostBand-implemented | ✅ done — `docs/MRT2_API_NOTES.md` §7 |
 | 0.5 | `ARCHITECTURE.md`, `IMPLEMENTATION_PLAN.md`, `CLAUDE.md` | ✅ done |
 | 0.6 | `THIRD_PARTY_NOTICES.md`, `KNOWN_ISSUES.md`, `STAGE_READINESS.md` | ✅ done |
 | 0.7 | Repository + CMake setup | ✅ done |
-| 0.8 | Portable `follow::core`: state machine, fade, limiter, safety monitor, diagnostics, logging | ✅ done, **tested and passing** |
+| 0.8 | Portable `ghostband::core`: state machine, fade, limiter, safety monitor, diagnostics, logging | ✅ done, **tested and passing** |
 | 0.9 | `IGenerationBackend` abstraction + `NullBackend` | ✅ done, tested |
 | 0.10 | `Mrt2Backend` wrapping `magentart::core::RealtimeRunner` | ✅ **compiles and runs** — loads `mrt2_small`, streams via `RealtimeRunner` |
-| 0.11 | JUCE host: audio device, 48 kHz stereo out, START/STOP/PANIC, diagnostics | ✅ **builds and runs** — `Follow.app`, 48 kHz/512, diagnostics live |
+| 0.11 | JUCE host: audio device, 48 kHz stereo out, START/STOP/PANIC, diagnostics | ✅ **builds and runs** — `GhostBand.app`, 48 kHz/512, diagnostics live |
 | 0.12 | Build + run official `hello_mrt2` | ✅ **done on target hardware** (2026-08-09) |
-| 0.13 | Confirm real-time inference with `mrt2_small` | ✅ **done** — **17.17 ms per 40 ms frame (42.9%)** inside Follow, on an **Apple M2 Pro** |
+| 0.13 | Confirm real-time inference with `mrt2_small` | ✅ **done** — **17.17 ms per 40 ms frame (42.9%)** inside GhostBand, on an **Apple M2 Pro** |
 | 0.14 | Verify 48 kHz stereo output from a generated file | ✅ **done** — `out.wav`, 4.00 s, plays correctly as music |
 | 0.15 | Measure generation latency, underruns, CPU/GPU, memory | 🟡 **partial** — frame time and underruns measured; memory still unmeasured |
 
@@ -46,7 +46,7 @@ cheaper to set up.
 2. **Upstream's root CMake configures every example**, including SuperCollider, Max, PD
    and three npm/React UIs — even when you ask only for the `hello_mrt2` target. On a
    disk with ~22 GB free this exhausted space during configure. `scripts/trim-mrt2.py`
-   comments out the subdirectories Follow never links against, leaving `core` and
+   comments out the subdirectories GhostBand never links against, leaving `core` and
    `hello_mrt2`. Reversible via `--restore`.
 
    Configure still took **649 s** after trimming; TFLite clones the whole TensorFlow
@@ -74,7 +74,7 @@ been closed by running on the target Mac; 0.10, 0.11 and 0.15 still require it.
 *and actually verified* now, and everything requiring Metal is written against pinned
 upstream headers and clearly flagged unverified. Concretely, all failure-path logic —
 PANIC, the limiter, underrun policy, the engine state machine — lives in dependency-free
-`follow::core` and is covered by tests that run and pass here.
+`ghostband::core` and is covered by tests that run and pass here.
 
 **Does the workaround compromise live reliability?** No — it improves it. The safety
 stage is now independent of MRT2 by construction, so PANIC works even when the inference
@@ -98,8 +98,8 @@ cd magenta-realtime && cmake . -B build && cmake --build build --target hello_mr
     --prompt "warm organic indie folk ensemble, instrumental"
 # expect: out.wav, 4.00 s, 48 kHz stereo float
 
-# 3. Follow (tasks 0.10–0.11, 0.15)
-cmake -B build -DFOLLOW_BUILD_APP=ON -DMAGENTA_RT_DIR=/path/to/magenta-realtime
+# 3. GhostBand (tasks 0.10–0.11, 0.15)
+cmake -B build -DGHOSTBAND_BUILD_APP=ON -DMAGENTA_RT_DIR=/path/to/magenta-realtime
 cmake --build build -j && ctest --test-dir build --output-on-failure
 ```
 

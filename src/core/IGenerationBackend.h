@@ -1,5 +1,5 @@
-// Follow — live AI accompaniment for singer-songwriters.
-// Copyright 2026 Follow contributors. Licensed under Apache-2.0.
+// GhostBand — live AI accompaniment for singer-songwriters.
+// Copyright 2026 GhostBand contributors. Licensed under Apache-2.0.
 
 #pragma once
 
@@ -8,7 +8,7 @@
 #include <string>
 #include <vector>
 
-namespace follow::core {
+namespace ghostband::core {
 
 /// Mirrors MRT2's `EngineMetrics` (upstream `realtime_runner.h`), minus fields that are
 /// meaningful only to a DAW host.
@@ -24,14 +24,14 @@ struct GenerationMetrics {
 /// (0 idle, 1 fetching, 2 success, 3 error) — see docs/MRT2_API_NOTES.md §6.2.
 enum class PromptStatus { Idle = 0, Encoding = 1, Ready = 2, Error = 3 };
 
-/// The seam between Follow and Magenta RealTime 2.
+/// The seam between GhostBand and Magenta RealTime 2.
 ///
 /// **Every method here corresponds to a call verified in pinned upstream source**
 /// (docs/MRT2_API_NOTES.md). Nothing is aspirational. If MRT2 gains a capability, it is
 /// verified there first and added here second — never the other way round.
 ///
 /// The interface exists for two concrete reasons, not for abstraction's own sake:
-///   1. MRT2 cannot compile off Apple Silicon, so without this seam none of Follow's
+///   1. MRT2 cannot compile off Apple Silicon, so without this seam none of GhostBand's
 ///      logic could be built or tested anywhere else — including CI.
 ///   2. It keeps `magentart::` symbols confined to one translation unit, so an upstream
 ///      API break is a compile error in one file rather than a scattered rewrite.
@@ -101,7 +101,7 @@ public:
     /// @}
 
     /// @name Backend-side output control
-    /// Follow's user-facing AI Output Level lives in `AiOutputStage`, not here — one
+    /// GhostBand's user-facing AI Output Level lives in `AiOutputStage`, not here — one
     /// authority for gain. These are secondary/belt-and-braces only.
     /// @{
     virtual void setMute(bool muted) noexcept = 0;
@@ -119,4 +119,4 @@ public:
     virtual bool isRealBackend() const noexcept = 0;
 };
 
-} // namespace follow::core
+} // namespace ghostband::core

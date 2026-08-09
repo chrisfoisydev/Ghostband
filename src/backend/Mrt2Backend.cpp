@@ -1,5 +1,5 @@
-// Follow — live AI accompaniment for singer-songwriters.
-// Copyright 2026 Follow contributors. Licensed under Apache-2.0.
+// GhostBand — live AI accompaniment for singer-songwriters.
+// Copyright 2026 GhostBand contributors. Licensed under Apache-2.0.
 //
 // ⚠️ macOS-only and NEVER COMPILED as of this commit. See Mrt2Backend.h.
 
@@ -11,17 +11,17 @@
 
 #include <filesystem>
 
-namespace follow::backend {
+namespace ghostband::backend {
 
 using core::LogCategory;
 using core::Logger;
 
 // If upstream ever changes the audio format, these fire at build time rather than
-// letting Follow quietly detune itself against a model it no longer matches.
+// letting GhostBand quietly detune itself against a model it no longer matches.
 static_assert(magentart::core::kFrameSamples == core::kFrameSamples,
-              "MRT2 frame size changed — update follow::core::kFrameSamples");
+              "MRT2 frame size changed — update ghostband::core::kFrameSamples");
 static_assert(magentart::core::kNumChannels == core::kNumChannels,
-              "MRT2 channel count changed — Follow assumes stereo throughout");
+              "MRT2 channel count changed — GhostBand assumes stereo throughout");
 static_assert(magentart::core::kMaxPrompts == core::kMaxPrompts,
               "MRT2 prompt-slot count changed — section pre-encoding strategy depends on it");
 
@@ -115,7 +115,7 @@ bool Mrt2Backend::readStereo(float* left, float* right, std::size_t numSamples) 
 }
 
 void Mrt2Backend::noteOn(int midiNote) noexcept {
-    // MRT2 accepts 0..131 (128 pitches + 4 drum triggers). Follow clamps musical input to
+    // MRT2 accepts 0..131 (128 pitches + 4 drum triggers). GhostBand clamps musical input to
     // the pitch range and reserves the triggers; an out-of-range note is dropped rather
     // than wrapped, because a wrapped note is a wrong chord.
     if (midiNote < 0 || midiNote >= core::kNumMidiNotes) return;
@@ -177,7 +177,7 @@ void Mrt2Backend::setTemperature(float v) noexcept { runner_.set_temperature(v);
 void Mrt2Backend::setTopK(int k) noexcept { runner_.set_top_k(k); }
 
 void Mrt2Backend::setMute(bool muted) noexcept {
-    // Secondary only. Follow's authoritative mute/PANIC is AiOutputStage's fade, which
+    // Secondary only. GhostBand's authoritative mute/PANIC is AiOutputStage's fade, which
     // gates audio we have already read and therefore still works if this thread is hung.
     runner_.set_mute(muted);
 }
@@ -201,4 +201,4 @@ std::vector<std::string> Mrt2Backend::drainEngineLogs() {
     return runner_.get_logs();
 }
 
-} // namespace follow::backend
+} // namespace ghostband::backend

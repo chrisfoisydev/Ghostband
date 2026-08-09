@@ -1,12 +1,12 @@
-// Follow — live AI accompaniment for singer-songwriters.
-// Copyright 2026 Follow contributors. Licensed under Apache-2.0.
+// GhostBand — live AI accompaniment for singer-songwriters.
+// Copyright 2026 GhostBand contributors. Licensed under Apache-2.0.
 
 #pragma once
 
 #include <atomic>
 #include <string>
 
-namespace follow::core {
+namespace ghostband::core {
 
 /// Lifecycle of the generation backend, as surfaced to the performer.
 ///
@@ -85,4 +85,4 @@ private:
     void setReason(std::string r) const noexcept;
 };
 
-} // namespace follow::core
+} // namespace ghostband::core

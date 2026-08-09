@@ -1,15 +1,15 @@
-// Follow — live AI accompaniment for singer-songwriters.
-// Copyright 2026 Follow contributors. Licensed under Apache-2.0.
+// GhostBand — live AI accompaniment for singer-songwriters.
+// Copyright 2026 GhostBand contributors. Licensed under Apache-2.0.
 
 #pragma once
 
-#include "FollowConstants.h"
+#include "GhostBandConstants.h"
 
 #include <atomic>
 #include <cstddef>
 #include <vector>
 
-namespace follow::core {
+namespace ghostband::core {
 
 /// Output safety stage for generated audio.
 ///
@@ -96,4 +96,4 @@ float linearToDb(float linear) noexcept;
 /// dBFS -> linear amplitude.
 float dbToLinear(float db) noexcept;
 
-} // namespace follow::core
+} // namespace ghostband::core

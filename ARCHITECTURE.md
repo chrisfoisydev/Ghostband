@@ -1,8 +1,8 @@
-# Follow — Architecture
+# GhostBand — Architecture
 
 > Your band follows you.
 
-Follow is a macOS / Apple Silicon standalone application that generates live
+GhostBand is a macOS / Apple Silicon standalone application that generates live
 instrumental accompaniment with **Magenta RealTime 2 (MRT2)**, steered in real time by a
 performing singer-songwriter.
 
@@ -15,7 +15,7 @@ source-verified MRT2 API surface that everything here is built on.
 ## 1. The one-sentence architecture
 
 > A JUCE audio callback pulls already-generated 48 kHz stereo audio out of MRT2's
-> lock-free ring buffer, passes it through Follow's own fade/limiter safety stage, and
+> lock-free ring buffer, passes it through GhostBand's own fade/limiter safety stage, and
 > writes it to the user's chosen output pair — while a separate control plane translates
 > the performer's MIDI, footswitches and section changes into MRT2 parameter writes that
 > are all atomic and non-blocking.
@@ -32,7 +32,7 @@ Nothing in the audio path allocates, locks, or waits.
 ├──────────────────────────────────────────────────────────────────┤
 │  Control plane          Song/Section · Intensity · MIDI map      │  message + MIDI thread
 ├──────────────────────────────────────────────────────────────────┤
-│  follow::core           portable, JUCE-free, MRT2-free           │  ← unit tested
+│  ghostband::core        portable, JUCE-free, MRT2-free           │  ← unit tested
 │    EngineState · FadeEnvelope · SafetyLimiter · SafetyMonitor    │
 │    AiOutputStage · Diagnostics · Logging · IGenerationBackend    │
 ├──────────────────────────────────────────────────────────────────┤
@@ -42,7 +42,7 @@ Nothing in the audio path allocates, locks, or waits.
 └──────────────────────────────────────────────────────────────────┘
 ```
 
-### 2.1 The load-bearing decision: `follow::core` is dependency-free
+### 2.1 The load-bearing decision: `ghostband::core` is dependency-free
 
 `src/core/` depends on **nothing but the C++20 standard library**. No JUCE, no MRT2, no
 Metal, no Objective-C.
@@ -80,13 +80,13 @@ atomic.
 
 ### 3.1 Buffering
 
-MRT2 already owns the generation ring buffer, so Follow does **not** add a second one —
+MRT2 already owns the generation ring buffer, so GhostBand does **not** add a second one —
 a second buffer would only add latency and a second place for underruns to hide.
 
 - MRT2 frame: 1920 samples = **40 ms** @ 48 kHz.
 - `RingBuffer::kCapacity` = 8192 samples (~170 ms); `virtual_capacity` default
   2048 (~42.7 ms), tunable via `set_buffer_size()`.
-- Follow's default: **3840 samples (~80 ms, two model frames)** — enough that a single
+- GhostBand's default: **3840 samples (~80 ms, two model frames)** — enough that a single
   late inference frame does not underrun, without stacking needless latency.
 
 This is the one number most worth tuning on real hardware, and it is exposed in the
@@ -100,7 +100,7 @@ diagnostics view rather than buried.
 MRT2 RealtimeRunner::read_audio_stereo(L, R, n)   ── returns false on underrun
         │                                             (and zero-pads, per upstream)
         ▼
-follow::core::AiOutputStage::process(L, R, n)
+ghostband::core::AiOutputStage::process(L, R, n)
         │  1. PANIC / mute fade envelope   (30 ms default, 20–50 ms range)
         │  2. AI output level              (smoothed, dB)
         │  3. SafetyLimiter                (peak ceiling, soft knee)
@@ -119,13 +119,13 @@ Underrun handling is a **policy in `SafetyMonitor`**, not an ad-hoc branch:
   un-mute mid-song, because a surprise band re-entry is worse than no band.
 
 This satisfies the brief's §5 failure philosophy: the guitar and voice are untouched by
-any of it, because they never route through Follow at all (§7 below).
+any of it, because they never route through GhostBand at all (§7 below).
 
 ---
 
 ## 5. PANIC
 
-PANIC is `follow::core`, not MRT2.
+PANIC is `ghostband::core`, not MRT2.
 
 ```cpp
 outputStage.panic();   // atomic store; safe from UI, MIDI, or key handler
@@ -143,10 +143,10 @@ outputStage.panic();   // atomic store; safe from UI, MIDI, or key handler
 
 ---
 
-## 6. AI Intensity — a Follow-owned macro
+## 6. AI Intensity — a GhostBand-owned macro
 
 MRT2 exposes **no** density or intensity parameter (`docs/MRT2_API_NOTES.md` §6.3).
-The brief (§16) requires one, and requires that it not be a volume control. So Follow
+The brief (§16) requires one, and requires that it not be a volume control. So GhostBand
 defines it, and documents the mapping rather than hiding it:
 
 `AI Intensity ∈ [0, 1]` maps to:
@@ -170,18 +170,18 @@ regardless of arrangement density).
 
 ---
 
-## 7. Signal routing — Follow is additive, never in the way
+## 7. Signal routing — GhostBand is additive, never in the way
 
 ```
 Vocal mic ─────────────────────────────► Audio interface ──► FOH ch 1
 Acoustic guitar ───────────────────────► Audio interface ──► FOH ch 2
-                                    ┌──► Follow (AI) ──────► FOH ch 3+4
+                                    ┌──► GhostBand (AI) ──────► FOH ch 3+4
 MacBook ────────────────────────────┘
 ```
 
-The performer's voice and guitar **do not pass through Follow**. If the app crashes, the
+The performer's voice and guitar **do not pass through GhostBand**. If the app crashes, the
 laptop sleeps, or MRT2 dies, the show continues at full quality. This is an architectural
-guarantee, not a feature — Follow has no input path in the primary signal chain at all.
+guarantee, not a feature — GhostBand has no input path in the primary signal chain at all.
 
 Guitar Follow (Phase 3) will *listen* to a guitar input, but as a **tap**, never as an
 insert.
@@ -194,7 +194,7 @@ MRT2 has no "crossfade prompts over N ms" call, but it has 6 prompt slots with a
 automatable blend weights, and text encoding is asynchronous
 (`docs/MRT2_API_NOTES.md` §6.2).
 
-Follow's approach:
+GhostBand's approach:
 
 1. **At song load**, encode every distinct section prompt into its own slot. Encoding
    latency is paid while nobody is playing.
@@ -214,7 +214,7 @@ sample-accurate ramping would be false precision.
 
 | Module | Status | Notes |
 |---|---|---|
-| `core/FollowConstants.h` | ✅ implemented | 48 kHz, 1920-sample frame, mirrors MRT2 |
+| `core/GhostBandConstants.h` | ✅ implemented | 48 kHz, 1920-sample frame, mirrors MRT2 |
 | `core/EngineState` | ✅ implemented, tested | Unloaded→Loading→Ready→Running→Error |
 | `core/FadeEnvelope` | ✅ implemented, tested | PANIC / mute ramps |
 | `core/SafetyLimiter` | ✅ implemented, tested | peak ceiling, soft knee, lookahead-free |
@@ -242,7 +242,7 @@ it is. See `KNOWN_ISSUES.md` §1.
 ## 10. Build layout
 
 ```
-CMakeLists.txt              # follow_core + tests everywhere; app + MRT2 on APPLE only
+CMakeLists.txt              # ghostband_core + tests everywhere; app + MRT2 on APPLE only
 src/core/                   # portable. no JUCE, no MRT2, no platform code.
 src/backend/Mrt2Backend.*   # macOS: wraps magentart::core::RealtimeRunner
 src/backend/NullBackend.*   # portable: silence + "no model loaded"
@@ -256,7 +256,7 @@ cmake --build build -j
 ctest --test-dir build --output-on-failure
 ```
 
-On macOS, add `-DFOLLOW_BUILD_APP=ON` and point `-DMAGENTA_RT_DIR=` at a checkout of
+On macOS, add `-DGHOSTBAND_BUILD_APP=ON` and point `-DMAGENTA_RT_DIR=` at a checkout of
 `magenta/magenta-realtime`.
 
 ---

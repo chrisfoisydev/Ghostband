@@ -1,4 +1,4 @@
-# Follow — Known Issues
+# GhostBand — Known Issues
 
 Every known gap, with impact. Nothing here is hidden from the UI: anything unimplemented
 is absent or labelled, per `CLAUDE.md` rule 2.
@@ -19,18 +19,18 @@ audio/GUI dependencies (ALSA, freetype) are also absent here.
 
 - ✅ `hello_mrt2` built and run; `mrt2_small` generates coherent instrumental music as a
   valid 4.00 s 48 kHz stereo WAV.
-- ✅ `Mrt2Backend` and the JUCE host **compile and run**. `Follow.app` opens a 48 kHz
+- ✅ `Mrt2Backend` and the JUCE host **compile and run**. `GhostBand.app` opens a 48 kHz
   device at 512 samples, loads `mrt2_small`, and streams through `RealtimeRunner`.
 - ✅ **Real-time throughput confirmed: 17.17 ms per 40 ms frame (42.9% of budget)** —
   roughly 2.3x faster than playback, with the generation buffer holding 3328/3840 samples.
 
 **Still open:**
 
-- ✅ **Audible output confirmed** — the band plays through Follow on an Apple M2 Pro.
+- ✅ **Audible output confirmed** — the band plays through GhostBand on an Apple M2 Pro.
 - ❌ Memory growth, long-run stability, device reconnect — unmeasured.
 
 **Structural consequence:** every change to `src/backend/` or `src/app/` is unverified
-until someone builds on a Mac. CI can only ever cover `follow::core`. This is why the
+until someone builds on a Mac. CI can only ever cover `ghostband::core`. This is why the
 safety-critical logic lives there — it is the part that can be regression-tested on every
 commit.
 
@@ -81,7 +81,7 @@ inference thread runs.
 
 **Impact:** the brief (§21) requires that recording never jeopardise generation
 stability; the native buffer does not meet that bar for full-set recording.
-**Resolution:** Follow supplies its own async disk writer in Phase 5. Until then,
+**Resolution:** GhostBand supplies its own async disk writer in Phase 5. Until then,
 recording stays absent from the UI rather than shipping a version that can stall a gig.
 
 ---
@@ -97,7 +97,7 @@ and is unmeasured. Exposed in diagnostics rather than hidden. Tune in Phase 4.
 ## 7. ℹ️ Upstream `set_audio_prompt(index, path)` returns a fake embedding
 
 Upstream's header carries `TODO(public-release)`: when `path` is non-empty it "writes a
-deterministic fake embedding rather than decoding the file." **Follow never calls it.**
+deterministic fake embedding rather than decoding the file." **GhostBand never calls it.**
 Use `set_audio_prompt_samples()`. Recorded so nobody later "fixes" our omission.
 
 ---
@@ -105,7 +105,7 @@ Use `set_audio_prompt_samples()`. Recorded so nobody later "fixes" our omission.
 ## 8. ℹ️ MIDI pitch range is 132, not 128
 
 `kTotalPitches = 132` — 128 pitches plus 4 drum triggers. `MODEL.md` says "128-dim
-multihot", which understates it. Follow clamps incoming MIDI to 0–127 and reserves
+multihot", which understates it. GhostBand clamps incoming MIDI to 0–127 and reserves
 128–131 for future explicit drum triggering. No impact today.
 
 ---
@@ -139,7 +139,7 @@ is not running, an empty buffer is the expected state.
 
 **Fix:**
 - `SafetyMonitor::setGenerating(bool)` — underruns are only policed while generation is
-  meant to be producing audio. Wired to start/stop in `FollowAudioEngine`.
+  meant to be producing audio. Wired to start/stop in `GhostBandAudioEngine`.
 - A **priming grace window** (default 1 s) on the rising edge, because even a healthy
   engine underruns while the ring buffer fills. Absorbed underruns are still counted and
   surfaced via `primingUnderruns()` so a struggling start stays visible.

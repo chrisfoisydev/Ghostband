@@ -1,9 +1,9 @@
-// Follow — live AI accompaniment for singer-songwriters.
-// Copyright 2026 Follow contributors. Licensed under Apache-2.0.
+// GhostBand — live AI accompaniment for singer-songwriters.
+// Copyright 2026 GhostBand contributors. Licensed under Apache-2.0.
 
 #include "EngineState.h"
 
-namespace follow::core {
+namespace ghostband::core {
 
 const char* toString(EngineState s) noexcept {
     switch (s) {
@@ -116,4 +116,4 @@ void EngineStateMachine::setReason(std::string r) const noexcept {
     reason_lock_.clear(std::memory_order_release);
 }
 
-} // namespace follow::core
+} // namespace ghostband::core

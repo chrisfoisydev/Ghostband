@@ -1,5 +1,5 @@
-// Follow — live AI accompaniment for singer-songwriters.
-// Copyright 2026 Follow contributors. Licensed under Apache-2.0.
+// GhostBand — live AI accompaniment for singer-songwriters.
+// Copyright 2026 GhostBand contributors. Licensed under Apache-2.0.
 //
 // ⚠️ macOS-only, NEVER COMPILED as of this commit. See KNOWN_ISSUES.md §1.
 
@@ -16,12 +16,12 @@ namespace {
 void installFileLogSink() {
     static juce::File log_file =
         juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory)
-            .getChildFile("Follow/logs")
+            .getChildFile("GhostBand/logs")
             .getChildFile("follow-" + juce::Time::getCurrentTime().formatted("%Y%m%d-%H%M%S")
                           + ".log");
     log_file.getParentDirectory().createDirectory();
 
-    follow::core::Logger::instance().setSink([](const std::string& line) {
+    ghostband::core::Logger::instance().setSink([](const std::string& line) {
         std::fprintf(stderr, "%s\n", line.c_str());
         log_file.appendText(juce::String(line) + "\n");
     });
@@ -29,23 +29,23 @@ void installFileLogSink() {
 
 } // namespace
 
-class FollowApplication : public juce::JUCEApplication {
+class GhostBandApplication : public juce::JUCEApplication {
 public:
-    const juce::String getApplicationName() override { return "Follow"; }
+    const juce::String getApplicationName() override { return "GhostBand"; }
     const juce::String getApplicationVersion() override { return "0.1.0"; }
     bool moreThanOneInstanceAllowed() override { return false; }
 
     void initialise(const juce::String&) override {
         installFileLogSink();
-        follow::core::Logger::instance().info(follow::core::LogCategory::System,
-                                              "Follow starting",
+        ghostband::core::Logger::instance().info(ghostband::core::LogCategory::System,
+                                              "GhostBand starting",
                                               {{"version", "0.1.0"}});
         main_window_ = std::make_unique<MainWindow>(getApplicationName());
     }
 
     void shutdown() override {
-        follow::core::Logger::instance().info(follow::core::LogCategory::System,
-                                              "Follow shutting down");
+        ghostband::core::Logger::instance().info(ghostband::core::LogCategory::System,
+                                              "GhostBand shutting down");
         main_window_ = nullptr;
     }
 
@@ -59,7 +59,7 @@ private:
                              juce::Colour(0xff0e0f11),
                              DocumentWindow::allButtons) {
             setUsingNativeTitleBar(true);
-            setContentOwned(new follow::app::MainComponent(), true);
+            setContentOwned(new ghostband::app::MainComponent(), true);
             setResizable(true, true);
             centreWithSize(getWidth(), getHeight());
             setVisible(true);
@@ -76,4 +76,4 @@ private:
     std::unique_ptr<MainWindow> main_window_;
 };
 
-START_JUCE_APPLICATION(FollowApplication)
+START_JUCE_APPLICATION(GhostBandApplication)

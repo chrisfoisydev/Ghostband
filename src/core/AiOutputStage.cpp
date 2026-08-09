@@ -1,12 +1,12 @@
-// Follow — live AI accompaniment for singer-songwriters.
-// Copyright 2026 Follow contributors. Licensed under Apache-2.0.
+// GhostBand — live AI accompaniment for singer-songwriters.
+// Copyright 2026 GhostBand contributors. Licensed under Apache-2.0.
 
 #include "AiOutputStage.h"
 
 #include <algorithm>
 #include <cmath>
 
-namespace follow::core {
+namespace ghostband::core {
 
 namespace {
 /// Level-change smoothing. Fast enough to feel immediate on a fader, slow enough that a
@@ -122,4 +122,4 @@ void AiOutputStage::process(float* left, float* right, std::size_t numSamples,
     rms_db_.store(linearToDb(rms), std::memory_order_relaxed);
 }
 
-} // namespace follow::core
+} // namespace ghostband::core

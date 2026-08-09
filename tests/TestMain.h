@@ -1,11 +1,11 @@
-// Follow — live AI accompaniment for singer-songwriters.
-// Copyright 2026 Follow contributors. Licensed under Apache-2.0.
+// GhostBand — live AI accompaniment for singer-songwriters.
+// Copyright 2026 GhostBand contributors. Licensed under Apache-2.0.
 
 #pragma once
 
 // A ~60-line test harness.
 //
-// Why not Catch2/GoogleTest: `follow_core` has zero dependencies by design, and adding a
+// Why not Catch2/GoogleTest: `ghostband_core` has zero dependencies by design, and adding a
 // test framework would mean a network fetch at configure time plus another entry in
 // THIRD_PARTY_NOTICES.md. What we actually need is "assert, count, report, exit non-zero",
 // which is small enough to own. If test needs outgrow this, revisit — but not before.
@@ -15,7 +15,7 @@
 #include <cstdlib>
 #include <string>
 
-namespace follow::test {
+namespace ghostband::test {
 
 inline int g_checks = 0;
 inline int g_failures = 0;
@@ -45,24 +45,24 @@ inline bool nearlyEqual(double a, double b, double tolerance) {
     return std::fabs(a - b) <= tolerance;
 }
 
-} // namespace follow::test
+} // namespace ghostband::test
 
 #define CHECK(cond)                                                                    \
     do {                                                                               \
-        ++::follow::test::g_checks;                                                    \
+        ++::ghostband::test::g_checks;                                                    \
         if (!(cond)) {                                                                 \
-            ::follow::test::reportFailure(__FILE__, __LINE__,                          \
+            ::ghostband::test::reportFailure(__FILE__, __LINE__,                          \
                 std::string("expected: ") + #cond);                                    \
         }                                                                              \
     } while (0)
 
 #define CHECK_EQ(actual, expected)                                                     \
     do {                                                                               \
-        ++::follow::test::g_checks;                                                    \
+        ++::ghostband::test::g_checks;                                                    \
         const auto a_ = (actual);                                                      \
         const auto e_ = (expected);                                                    \
         if (!(a_ == e_)) {                                                             \
-            ::follow::test::reportFailure(__FILE__, __LINE__,                          \
+            ::ghostband::test::reportFailure(__FILE__, __LINE__,                          \
                 std::string(#actual) + " == " + #expected                              \
                 + "\n      actual:   " + std::to_string(a_)                            \
                 + "\n      expected: " + std::to_string(e_));                          \
@@ -71,11 +71,11 @@ inline bool nearlyEqual(double a, double b, double tolerance) {
 
 #define CHECK_NEAR(actual, expected, tol)                                              \
     do {                                                                               \
-        ++::follow::test::g_checks;                                                    \
+        ++::ghostband::test::g_checks;                                                    \
         const double a_ = static_cast<double>(actual);                                 \
         const double e_ = static_cast<double>(expected);                               \
-        if (!::follow::test::nearlyEqual(a_, e_, static_cast<double>(tol))) {           \
-            ::follow::test::reportFailure(__FILE__, __LINE__,                          \
+        if (!::ghostband::test::nearlyEqual(a_, e_, static_cast<double>(tol))) {           \
+            ::ghostband::test::reportFailure(__FILE__, __LINE__,                          \
                 std::string(#actual) + " ~= " + #expected                              \
                 + "\n      actual:   " + std::to_string(a_)                            \
                 + "\n      expected: " + std::to_string(e_)                            \
@@ -84,8 +84,8 @@ inline bool nearlyEqual(double a, double b, double tolerance) {
     } while (0)
 
 #define TEST(name)                                                                     \
-    ::follow::test::beginTest(name);                                                   \
-    for (int once_ = 0; once_ < 1; ++once_, ::follow::test::endTest())
+    ::ghostband::test::beginTest(name);                                                   \
+    for (int once_ = 0; once_ < 1; ++once_, ::ghostband::test::endTest())
 
 #define TEST_MAIN_BEGIN(suite)                                                         \
     int main() {                                                                       \
@@ -93,6 +93,6 @@ inline bool nearlyEqual(double a, double b, double tolerance) {
 
 #define TEST_MAIN_END()                                                                \
         std::printf("\n  %d checks, %d failures\n\n",                                  \
-                    ::follow::test::g_checks, ::follow::test::g_failures);             \
-        return ::follow::test::g_failures == 0 ? 0 : 1;                                \
+                    ::ghostband::test::g_checks, ::ghostband::test::g_failures);             \
+        return ::ghostband::test::g_failures == 0 ? 0 : 1;                                \
     }

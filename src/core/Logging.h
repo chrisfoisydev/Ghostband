@@ -1,5 +1,5 @@
-// Follow — live AI accompaniment for singer-songwriters.
-// Copyright 2026 Follow contributors. Licensed under Apache-2.0.
+// GhostBand — live AI accompaniment for singer-songwriters.
+// Copyright 2026 GhostBand contributors. Licensed under Apache-2.0.
 
 #pragma once
 
@@ -11,7 +11,7 @@
 #include <utility>
 #include <vector>
 
-namespace follow::core {
+namespace ghostband::core {
 
 enum class LogLevel { Debug = 0, Info = 1, Warn = 2, Error = 3 };
 
@@ -94,11 +94,11 @@ private:
 };
 
 /// Convenience macros keep call sites short without hiding the category.
-#define FOLLOW_LOG_INFO(cat, msg, ...) \
-    ::follow::core::Logger::instance().info(cat, msg, __VA_ARGS__)
-#define FOLLOW_LOG_WARN(cat, msg, ...) \
-    ::follow::core::Logger::instance().warn(cat, msg, __VA_ARGS__)
-#define FOLLOW_LOG_ERROR(cat, msg, ...) \
-    ::follow::core::Logger::instance().error(cat, msg, __VA_ARGS__)
+#define GHOSTBAND_LOG_INFO(cat, msg, ...) \
+    ::ghostband::core::Logger::instance().info(cat, msg, __VA_ARGS__)
+#define GHOSTBAND_LOG_WARN(cat, msg, ...) \
+    ::ghostband::core::Logger::instance().warn(cat, msg, __VA_ARGS__)
+#define GHOSTBAND_LOG_ERROR(cat, msg, ...) \
+    ::ghostband::core::Logger::instance().error(cat, msg, __VA_ARGS__)
 
-} // namespace follow::core
+} // namespace ghostband::core
