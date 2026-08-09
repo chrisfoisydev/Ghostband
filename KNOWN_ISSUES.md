@@ -152,8 +152,16 @@ is not running, an empty buffer is the expected state.
 **Covered by five new tests**, including the exact observed scenario (5000 underrunning
 blocks while stopped must not trip Degraded).
 
-**Status: fixed, unit-tested, and CONFIRMED ON HARDWARE (2026-08-09).** With the fix in
-place the band is audible on an Apple M2 Pro.
+**Status: fixed, unit-tested, and CONFIRMED ON HARDWARE (2026-08-09).** With the fixed
+binary running on an Apple M2 Pro: `Health` stays `Healthy`, underruns sit at/near zero,
+and the band is audible without operator intervention.
+
+Worth recording how nearly this was mis-verified: an intermediate run *appeared* to
+confirm the fix while still executing a stale binary — the source had been pulled but not
+rebuilt. The tell was the UI warning text, which still read "Press PANIC to release"
+instead of the new "Press RECOVER AI when stable". **When verifying a fix on hardware,
+confirm the binary is actually the new one** — a visible string change is the cheapest
+way to do that, and is worth deliberately including in any future fix that matters.
 
 ---
 
