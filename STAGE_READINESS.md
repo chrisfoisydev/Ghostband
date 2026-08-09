@@ -15,14 +15,14 @@ Legend: ✅ verified by execution · ⚠️ implemented but unverified · ❌ no
 |---|---|---|---|
 | 1 | App launches reliably | 🟡 | launches and runs; "reliably" needs repetition + soak |
 | 2 | MRT2 Small loads reliably | 🟡 | loads inside GhostBand (once); repetition untested |
-| 3 | Continuous streaming works | 🟡 | **audible band confirmed** on M2 Pro, 17.17/40 ms; no soak test yet |
+| 3 | Continuous streaming works | 🟡 | **audible, 0 underruns, 0 dropped frames** over ~2 min on M2 Pro at 17.23/40 ms; no 60-min soak |
 | 4 | MIDI chords steer generated harmony | ❌ | Phase 1; MRT2 API verified, not wired |
 | 5 | Section changes work | ❌ | Phase 2 |
 | 6 | MIDI footswitch control works | ❌ | Phase 2 |
 | 7 | AI mute works | 🟡 | unit-tested + wired to AI BAND; audible path confirmed (peak -12.6 dBFS, RMS -20.1), mute itself not yet A/B'd |
 | 8 | **PANIC always works** | ⚠️ | fade **unit-tested**; wired to button + Escape; app reports 32.0 ms latency; not yet confirmed audibly |
-| 9 | No persistent audio glitches | 🟡 | ~4 min run: Health `Healthy`, generation steady at 16.94/40 ms, limiter never engaged (0.0 dB GR). No 60-min soak. |
-| 10 | No serious memory leak over 60 min | 🚫 | soak test not run |
+| 9 | No persistent audio glitches | 🟡 | **0 underruns, 0 dropped frames, 0 absorbed by priming**; limiter never engaged (0.0 dB GR). No 60-min soak. |
+| 10 | No serious memory leak over 60 min | 🟡 | memory now measured; **1.16 GB baseline** with mrt2_small resident. 60-min trend not taken. |
 | 11 | Audio device reconnect handled gracefully | ❌ | Phase 4 |
 | 12 | Model errors do not crash the app | ⚠️ | `EngineState` error path **tested**; real MRT2 errors unobserved |
 | 13 | Songs persist | ❌ | Phase 2 |
