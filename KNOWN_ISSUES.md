@@ -14,15 +14,20 @@ only by explicit upstream design (`message(FATAL_ERROR)` on `NOT APPLE`; links
 MLX/Metal/Accelerate/Foundation; requires an Objective-C++ toolchain). JUCE's Linux
 audio/GUI dependencies (ALSA, freetype) are also absent here.
 
-Therefore:
+Status after the first build on target hardware (2026-08-09):
 
+- ✅ `hello_mrt2` — **built and run.** `mrt2_small` generates coherent instrumental music;
+  output is a valid 4.00 s 48 kHz stereo WAV. MRT2 itself is proven on this machine.
 - `src/backend/Mrt2Backend.{h,cpp}` — written against pinned upstream headers,
-  **never compiled**.
-- `src/app/` (JUCE host) — written, **never compiled**.
-- `hello_mrt2` — **never built or run**.
-- Real-time inference with `mrt2_small` — **never verified**.
-- 48 kHz stereo output — verified from upstream *source constants* only
-  (`kFrameSamples = 1920`, `kNumChannels = 2`), never from generated audio.
+  **still never compiled**.
+- `src/app/` (JUCE host) — written, **still never compiled**.
+- **Real-time throughput — still unverified.** This is the important one. `hello_mrt2`
+  renders offline and reports no timing, so "generates faster than playback" has *not*
+  been demonstrated. It needs `EngineMetrics::total_ms` measured against the 40 ms frame
+  budget, which needs the Follow app running.
+- `RealtimeRunner` — **never exercised.** `hello_mrt2` calls `MLXEngine::generate_frame`
+  directly; Follow uses the runner's inference thread and ring buffers. Different path,
+  independent risk.
 - Latency, CPU/GPU load, memory growth — **unmeasured**.
 
 **What *is* verified:** `follow::core` and `NullBackend` build with `-Wall -Wextra` and

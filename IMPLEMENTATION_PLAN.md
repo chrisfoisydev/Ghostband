@@ -24,12 +24,33 @@ application.* Not "the UI exists."
 | 0.9 | `IGenerationBackend` abstraction + `NullBackend` | ✅ done, tested |
 | 0.10 | `Mrt2Backend` wrapping `magentart::core::RealtimeRunner` | ⚠️ written, **never compiled** (needs macOS) |
 | 0.11 | JUCE host: audio device, 48 kHz stereo out, START/STOP/PANIC, diagnostics | ⚠️ written, **never compiled** (needs macOS) |
-| 0.12 | Build + run official `hello_mrt2` | 🚫 **blocked — requires Apple Silicon** |
-| 0.13 | Confirm real-time inference with `mrt2_small` | 🚫 **blocked — requires Apple Silicon** |
-| 0.14 | Verify 48 kHz stereo output from a generated file | 🚫 **blocked — requires Apple Silicon** |
-| 0.15 | Measure generation latency, underruns, CPU/GPU, memory | 🚫 **blocked — requires Apple Silicon** |
+| 0.12 | Build + run official `hello_mrt2` | ✅ **done on target hardware** (2026-08-09) |
+| 0.13 | Confirm inference with `mrt2_small` | 🟡 **partial** — model loads and generates valid music; real-time *throughput* not yet measured |
+| 0.14 | Verify 48 kHz stereo output from a generated file | ✅ **done** — `out.wav`, 4.00 s, plays correctly as music |
+| 0.15 | Measure generation latency, underruns, CPU/GPU, memory | ❌ not started — needs the Follow app (0.11) |
 
-### The blocker, stated plainly
+### Setup gotchas found on the first real build (2026-08-09)
+
+Both cost real time and neither is in upstream's README. Recorded so the next machine is
+cheaper to set up.
+
+1. **The Metal Toolchain is a separate Xcode download.** MLX compiles its own Metal
+   shaders; Xcode 16+ no longer bundles the `metal` compiler. The build dies with
+   `cannot execute tool 'metal' due to missing Metal Toolchain`. Fix:
+   ```bash
+   xcodebuild -downloadComponent MetalToolchain
+   ```
+
+2. **Upstream's root CMake configures every example**, including SuperCollider, Max, PD
+   and three npm/React UIs — even when you ask only for the `hello_mrt2` target. On a
+   disk with ~22 GB free this exhausted space during configure. `scripts/trim-mrt2.py`
+   comments out the subdirectories Follow never links against, leaving `core` and
+   `hello_mrt2`. Reversible via `--restore`.
+
+   Configure still took **649 s** after trimming; TFLite clones the whole TensorFlow
+   repository and that is unavoidable. Budget ~25 GB free and an hour for a cold setup.
+
+### The remaining blocker, stated plainly
 
 **What we expected:** a macOS Apple Silicon machine, per the brief's §2 and §34.2.
 
@@ -43,8 +64,9 @@ inference path in the C++ engine. (A Python JAX path exists for *offline*, non-r
 inference on NVIDIA GPUs; there is no GPU here either, and the brief explicitly forbids
 building the live engine around Python.)
 
-**Impact:** tasks 0.12–0.15 cannot be performed in this environment by any means. They
-are not "hard" here — they are impossible.
+**Impact:** tasks 0.12–0.15 cannot be performed *in the development container* by any
+means. They are not "hard" there — they are impossible. Tasks 0.12 and 0.14 have since
+been closed by running on the target Mac; 0.10, 0.11 and 0.15 still require it.
 
 **Workaround chosen:** split the spike so that everything not requiring Metal is built
 *and actually verified* now, and everything requiring Metal is written against pinned

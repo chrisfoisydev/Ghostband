@@ -17,9 +17,10 @@ This is **not** playing along to backing tracks.
 | ✅ MRT2 API researched and documented against pinned upstream source | [`docs/MRT2_API_NOTES.md`](docs/MRT2_API_NOTES.md) |
 | ✅ Architecture and plan | [`ARCHITECTURE.md`](ARCHITECTURE.md) · [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION_PLAN.md) |
 | ✅ Portable safety core — **built and tested** (PANIC, limiter, underrun policy, state machine) | `src/core/`, `tests/` |
+| ✅ MRT2 proven on target hardware — `mrt2_small` generates 48 kHz stereo music | via upstream `hello_mrt2` |
 | ⚠️ MRT2 backend adapter — **written, never compiled** | `src/backend/Mrt2Backend.*` |
 | ⚠️ JUCE host — **written, never compiled** | `src/app/` |
-| 🚫 MRT2 streaming verified on hardware | **blocked: requires Apple Silicon** |
+| 🚫 Real-time throughput measured | not yet — needs the app running |
 
 **Read [`KNOWN_ISSUES.md`](KNOWN_ISSUES.md) §1 before trusting anything here.** This
 repository was developed on Linux x86-64, where MRT2's C++ engine refuses to build by
@@ -46,17 +47,31 @@ No dependencies beyond a C++20 compiler. This is what CI runs.
 ### Full application — macOS on Apple Silicon
 
 ```bash
-# 1. Install MRT2 resources and weights (never bundled — see THIRD_PARTY_NOTICES.md)
-uv venv --python 3.12 && source .venv/bin/activate
-uv pip install "magenta-rt[mlx]"
-mrt models init
-mrt models download
+# 1. Xcode's Metal compiler is a SEPARATE download. MLX builds its own shaders and
+#    fails with "cannot execute tool 'metal'" without it. Not in upstream's README.
+xcodebuild -downloadComponent MetalToolchain
 
-# 2. Build
-git clone https://github.com/magenta/magenta-realtime.git ../magenta-realtime
-cmake -B build -DFOLLOW_BUILD_APP=ON -DMAGENTA_RT_DIR=../magenta-realtime
+# 2. MRT2 resources and weights (never bundled — see THIRD_PARTY_NOTICES.md).
+#    `mrt models download` with no argument defaults to mrt2_base; name it explicitly.
+uv venv --python 3.12 && source .venv/bin/activate
+uv pip install "magenta-rt[mlx]" "cmake<3.28"
+mrt models init
+mrt models download mrt2_small
+
+# 3. Upstream sanity check. The trim script drops the examples Follow never links
+#    against (SuperCollider, Max, PD, the React UIs) — they cost GBs of disk to
+#    configure. Reversible with --restore.
+git clone https://github.com/magenta/magenta-realtime.git ~/magenta-realtime
+python3 scripts/trim-mrt2.py ~/magenta-realtime
+cd ~/magenta-realtime && cmake . -B build && cmake --build build --target hello_mrt2 -j10
+
+# 4. Build Follow
+cmake -B build -DFOLLOW_BUILD_APP=ON -DMAGENTA_RT_DIR=~/magenta-realtime
 cmake --build build -j
 ```
+
+Budget **~25 GB free disk** and about an hour for a cold setup: TFLite clones the entire
+TensorFlow repository, and configure alone took 649 s on an M-series MacBook Pro.
 
 Expect compile errors in `Mrt2Backend` on the first attempt — it is adapter code written
 without a compiler available.

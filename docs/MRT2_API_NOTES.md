@@ -373,17 +373,35 @@ research; not used in Phase 0.
 
 ---
 
-## 9. What has NOT been verified (honesty ledger)
+## 9. Verification ledger
 
-Because this development container is **Linux x86_64**, and MRT2 requires
-macOS + Apple Silicon, the following remain **unverified by execution**:
+Everything in §1–§8 is verified by reading pinned upstream source. Execution status,
+updated after the first build on target hardware (2026-08-09):
 
-- ❌ `hello_mrt2` has **not** been built or run here.
-- ❌ Real-time inference with `mrt2_small` has **not** been measured here.
-- ❌ 48 kHz stereo output has been confirmed from **source constants only**, not from a
-  generated `out.wav`.
-- ❌ End-to-end latency, CPU/GPU load, and long-run stability are **unmeasured**.
+**Verified by execution, on an Apple Silicon Mac:**
 
-Everything in §1–§8 above is verified by reading pinned upstream source. Everything in
-this section requires an Apple Silicon Mac. See `KNOWN_ISSUES.md` §1 and
-`STAGE_READINESS.md` for the exact commands to close these gaps.
+- ✅ `hello_mrt2` builds against `magentart::core` and runs.
+- ✅ `mrt2_small` loads from a `.mlxfn` directory, with MusicCoCa TFLite assets from
+  `resources/`, and generates coherent instrumental music from a text prompt.
+- ✅ Output is a valid 48 kHz stereo WAV — 100 frames produced exactly 4.00 s, which
+  confirms the `kFrameSamples = 1920` @ 25 Hz arithmetic in §3 against real audio rather
+  than against the header alone.
+- ✅ The async prompt-encode poll loop in §6.2 behaves as documented: the encoder and
+  quantizer statuses settle before generation begins.
+
+**Still unverified:**
+
+- ❌ **Real-time throughput.** `hello_mrt2` generates offline and reports no timing, so
+  "faster than playback" is *not* yet demonstrated. This is the single most important
+  open number for Follow and needs `EngineMetrics::total_ms` against the 40 ms frame
+  budget — i.e. it needs the Follow app.
+- ❌ `RealtimeRunner` (as opposed to `MLXEngine`) has never been exercised. `hello_mrt2`
+  uses `MLXEngine::generate_frame` directly; Follow uses the runner's inference thread
+  and ring buffers, which is a different code path.
+- ❌ MIDI steering, prompt blending, and underrun behaviour under load.
+- ❌ Long-run stability and memory growth.
+
+**Environment note:** this repository is developed in a Linux x86-64 container where MRT2
+cannot compile at all. Anything above marked ✅ was confirmed on the target Mac and
+reported back; nothing in this file is inferred from a successful compile that did not
+happen. See `KNOWN_ISSUES.md` §1.

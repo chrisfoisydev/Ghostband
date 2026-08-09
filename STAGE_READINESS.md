@@ -14,8 +14,8 @@ Legend: ✅ verified by execution · ⚠️ implemented but unverified · ❌ no
 | # | Criterion | Status | Evidence / blocker |
 |---|---|---|---|
 | 1 | App launches reliably | 🚫 | JUCE host never compiled (Linux dev box) |
-| 2 | MRT2 Small loads reliably | 🚫 | requires Apple Silicon |
-| 3 | Continuous streaming works | 🚫 | requires Apple Silicon |
+| 2 | MRT2 Small loads reliably | 🟡 | loads and generates music via upstream `hello_mrt2`; **not yet inside Follow** |
+| 3 | Continuous streaming works | 🚫 | `RealtimeRunner` never exercised; throughput unmeasured |
 | 4 | MIDI chords steer generated harmony | ❌ | Phase 1; MRT2 API verified, not wired |
 | 5 | Section changes work | ❌ | Phase 2 |
 | 6 | MIDI footswitch control works | ❌ | Phase 2 |
@@ -31,8 +31,13 @@ Legend: ✅ verified by execution · ⚠️ implemented but unverified · ❌ no
 | 16 | Generated band stays instrumental where practical | ❌ | prompt policy only; unverified |
 | 17 | **No feature claims something that isn't implemented** | ✅ | enforced by `CLAUDE.md` rule 2; this file is the audit |
 
-**Score: 1 / 17 verified.** Criterion 17 is the only one that can be honestly ticked
-today, and ticking it is what makes the other sixteen trustworthy.
+**Score: 1 / 17 verified, 1 partial.** Criterion 17 is still the only one that can be
+honestly ticked, and ticking it is what makes the other sixteen trustworthy.
+
+MRT2 is now proven to generate music on the target Mac (criterion 2, partial). That is a
+real milestone — but it was proven via *upstream's* example, not through Follow. Nothing
+in `src/backend/` or `src/app/` has yet been compiled, so no criterion moves to ✅ on the
+strength of it.
 
 ---
 
