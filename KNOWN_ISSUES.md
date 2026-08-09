@@ -180,3 +180,34 @@ precisely the "control that looks live but does nothing" `CLAUDE.md` rule 2 forb
 with an explicit reason ("requires M-series Pro Max"). Never switch models while
 performing, per the brief. A user who installs base anyway should get a clear warning
 rather than a degraded show.
+
+---
+
+## 12. ℹ️ Harmony latency is perceptible and unmeasured
+
+Confirmed by ear (2026-08-09): a chord change steers the band with a noticeable but
+musically acceptable delay. Nobody has measured it.
+
+**Where it comes from**, in descending order of size — all but the last are structural:
+
+| Source | Approximate | Avoidable? |
+|---|---|---|
+| MRT2 frame quantisation | up to 40 ms | No — 25 Hz generation cadence |
+| Model response to new conditioning | ~100–200 ms | No — the model card cites ~200 ms control latency |
+| GhostBand generation buffer | ~80 ms | Partly — tunable, at the cost of underrun margin |
+| Audio device buffer | ~11 ms @ 512 | Yes — a smaller device buffer |
+| Limiter lookahead | 2 ms | No, and not worth removing |
+
+The dominant terms belong to MRT2, not to us. Our ~80 ms buffer is the only meaningful
+lever, and shrinking it trades directly against underrun margin — currently excellent
+(0 underruns at 17 ms/frame), so there is room to experiment.
+
+**Why this may not be a defect.** A human band does not respond instantly either; players
+land on the change at the next beat. Whether ~250 ms reads as "sluggish" or "natural"
+depends on tempo and on whether the performer anticipates. That is a musical judgement, so
+it needs playing rather than analysis.
+
+**Next step (task 1.8):** measure it properly — timestamp a note-on against the first
+audible change — then decide whether to trade buffer for latency. Do not tune by feel
+alone; the number matters for deciding whether foot-triggered section changes need
+lookahead in Phase 2.

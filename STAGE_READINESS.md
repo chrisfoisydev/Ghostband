@@ -16,7 +16,7 @@ Legend: ✅ verified by execution · ⚠️ implemented but unverified · ❌ no
 | 1 | App launches reliably | 🟡 | launches and runs; "reliably" needs repetition + soak |
 | 2 | MRT2 Small loads reliably | 🟡 | loads inside GhostBand (once); repetition untested |
 | 3 | Continuous streaming works | 🟡 | **audible, 0 underruns, 0 dropped frames** over ~2 min on M2 Pro at 17.23/40 ms; no 60-min soak |
-| 4 | MIDI chords steer generated harmony | ❌ | Phase 1; MRT2 API verified, not wired |
+| 4 | MIDI chords steer generated harmony | 🟡 | **confirmed by ear** on M2 Pro via the on-screen keyboard: held chords steer the band, changes follow. Latency perceptible but musical. Hardware controller untested. |
 | 5 | Section changes work | ❌ | Phase 2 |
 | 6 | MIDI footswitch control works | ❌ | Phase 2 |
 | 7 | AI mute works | 🟡 | unit-tested + wired to AI BAND; audible path confirmed (peak -12.6 dBFS, RMS -20.1), mute itself not yet A/B'd |
