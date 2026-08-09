@@ -101,6 +101,8 @@ public:
         return m;
     }
 
+    void resetDroppedFrames() noexcept override {}
+
     const char* name() const noexcept override { return "none (no model loaded)"; }
     bool isRealBackend() const noexcept override { return false; }
 

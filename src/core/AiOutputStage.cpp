@@ -85,8 +85,13 @@ void AiOutputStage::process(float* left, float* right, std::size_t numSamples,
 
     // 1. Fault accounting first, so a degraded verdict takes effect on *this* block
     //    rather than the next one.
+    // Only underruns that occur *while generating* are faults. Reads taken when the
+    // engine is idle drain an empty buffer by definition, and reporting those as faults
+    // made the panel show thousands of "underruns" next to a Healthy verdict — accurate
+    // in each counter, incoherent as a whole, and alarming to read at a soundcheck.
+    const bool generating = monitor_.isGenerating();
     monitor_.reportBlock(numSamples, underran);
-    diagnostics_.noteBlock(numSamples, underran);
+    diagnostics_.noteBlock(numSamples, underran && generating);
     updateFadeTarget();
 
     // 2. Output level, smoothed per sample to avoid zipper noise on fader moves.

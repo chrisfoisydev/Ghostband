@@ -10,6 +10,8 @@
 #include "core/GhostBandConstants.h"
 #include "core/Logging.h"
 
+#include <mach/mach.h>
+
 namespace ghostband::app {
 
 using core::LogCategory;
@@ -195,6 +197,10 @@ void GhostBandAudioEngine::loadModelAsync(const juce::File& resourceDir,
 void GhostBandAudioEngine::startGeneration() {
     if (!state_.transitionTo(core::EngineState::Running)) return;
     backend_->start();
+    // Zero both fault tallies so the diagnostics figures describe *this* run. Without
+    // this, idle reads taken before START stay on the display for the whole session.
+    backend_->resetDroppedFrames();
+    output_stage_.diagnostics().resetFaultCounters();
     // Order matters: arm the monitor only after the backend is actually running, so the
     // priming grace window starts from the moment audio can genuinely appear.
     output_stage_.setGenerating(true);
@@ -251,6 +257,19 @@ juce::String GhostBandAudioEngine::sampleRateWarning() const {
            "GhostBand does not resample - set the interface to 48 kHz.";
 }
 
+double GhostBandAudioEngine::residentMemoryGb() {
+    // Resident set size via Mach. The brief requires a memory figure in diagnostics and
+    // a 60-minute run with no serious leak; "not measured" cannot answer either. Polled
+    // from the UI timer, never from the audio thread.
+    mach_task_basic_info info{};
+    mach_msg_type_number_t count = MACH_TASK_BASIC_INFO_COUNT;
+    if (task_info(mach_task_self(), MACH_TASK_BASIC_INFO,
+                  reinterpret_cast<task_info_t>(&info), &count) != KERN_SUCCESS) {
+        return 0.0;
+    }
+    return static_cast<double>(info.resident_size) / 1'000'000'000.0;
+}
+
 core::DiagnosticsSnapshot GhostBandAudioEngine::diagnostics() const {
     auto snap = output_stage_.diagnostics().snapshot();
     snap.engineState = state_.state();
@@ -265,6 +284,7 @@ core::DiagnosticsSnapshot GhostBandAudioEngine::diagnostics() const {
     snap.outputPeakDb = output_stage_.peakDb();
     snap.gainReductionDb = output_stage_.gainReductionDb();
     snap.audioCpuLoad = static_cast<float>(device_manager_.getCpuUsage());
+    snap.memoryUsageGb = residentMemoryGb();
     return snap;
 }
 

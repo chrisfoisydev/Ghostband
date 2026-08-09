@@ -19,9 +19,9 @@ Legend: ✅ verified by execution · ⚠️ implemented but unverified · ❌ no
 | 4 | MIDI chords steer generated harmony | ❌ | Phase 1; MRT2 API verified, not wired |
 | 5 | Section changes work | ❌ | Phase 2 |
 | 6 | MIDI footswitch control works | ❌ | Phase 2 |
-| 7 | AI mute works | 🟡 | unit-tested + wired to AI BAND; audible path confirmed, mute itself not yet A/B'd on hardware |
+| 7 | AI mute works | 🟡 | unit-tested + wired to AI BAND; audible path confirmed (peak -12.6 dBFS, RMS -20.1), mute itself not yet A/B'd |
 | 8 | **PANIC always works** | ⚠️ | fade **unit-tested**; wired to button + Escape; app reports 32.0 ms latency; not yet confirmed audibly |
-| 9 | No persistent audio glitches | 🚫 | first run showed 2373 underruns from a policy bug (fixed, unverified) |
+| 9 | No persistent audio glitches | 🟡 | ~4 min run: Health `Healthy`, generation steady at 16.94/40 ms, limiter never engaged (0.0 dB GR). No 60-min soak. |
 | 10 | No serious memory leak over 60 min | 🚫 | soak test not run |
 | 11 | Audio device reconnect handled gracefully | ❌ | Phase 4 |
 | 12 | Model errors do not crash the app | ⚠️ | `EngineState` error path **tested**; real MRT2 errors unobserved |

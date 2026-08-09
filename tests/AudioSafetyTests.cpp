@@ -569,7 +569,10 @@ TEST("output level is a gain, and -60 dB is true silence") {
     CHECK_NEAR(stage.outputLevelDb(), -60.0f, 1e-6);
 }
 
-TEST("diagnostics count blocks and underruns from the audio path") {
+TEST("diagnostics count every block, but only underruns that are faults") {
+    // Reads taken while the engine is idle drain an empty buffer by definition. Counting
+    // those made the panel display thousands of "underruns" beside a Healthy verdict —
+    // each counter accurate, the pair incoherent, and alarming to read at a soundcheck.
     AiOutputStage stage;
     stage.prepare(kSr, 1024);
 
@@ -579,10 +582,22 @@ TEST("diagnostics count blocks and underruns from the audio path") {
         stage.process(l.data(), r.data(), l.size(), /*underran=*/(i % 5 == 0));
     }
 
-    const auto snap = stage.diagnostics().snapshot();
-    CHECK_EQ(snap.blocksProcessed, 10u);
-    CHECK_EQ(snap.audioUnderruns, 2u);
+    auto snap = stage.diagnostics().snapshot();
+    CHECK_EQ(snap.blocksProcessed, 10u);  // every block is still counted
+    CHECK_EQ(snap.audioUnderruns, 0u);    // ...but none of these were faults
     CHECK_NEAR(snap.sampleRate, kSr, 1e-9);
+
+    // Once generating and past priming, underruns are real and must be reported.
+    stage.safetyMonitor().setPrimingGraceSeconds(0.0);
+    stage.setGenerating(true);
+    for (int i = 0; i < 10; ++i) {
+        fillConstant(l, r, 0.1f);
+        stage.process(l.data(), r.data(), l.size(), /*underran=*/(i % 5 == 0));
+    }
+
+    snap = stage.diagnostics().snapshot();
+    CHECK_EQ(snap.blocksProcessed, 20u);
+    CHECK_EQ(snap.audioUnderruns, 2u);
 }
 
 TEST("generation headroom ratio flags a model that cannot keep up") {

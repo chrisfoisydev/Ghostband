@@ -110,6 +110,10 @@ public:
 
     virtual GenerationMetrics metrics() const = 0;
 
+    /// Zero the backend's cumulative dropped-frame tally. Called on start so the figure
+    /// means "faults during this run", not "faults since the app launched".
+    virtual void resetDroppedFrames() noexcept = 0;
+
     /// Identifier for diagnostics, e.g. "mrt2_small".
     virtual const char* name() const noexcept = 0;
 

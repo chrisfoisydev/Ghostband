@@ -197,6 +197,10 @@ core::GenerationMetrics Mrt2Backend::metrics() const {
     return out;
 }
 
+void Mrt2Backend::resetDroppedFrames() noexcept {
+    runner_.reset_dropped_frames();
+}
+
 std::vector<std::string> Mrt2Backend::drainEngineLogs() {
     return runner_.get_logs();
 }

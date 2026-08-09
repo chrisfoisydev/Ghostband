@@ -65,6 +65,9 @@ public:
     /// Snapshot for the diagnostics view. Message thread.
     core::DiagnosticsSnapshot diagnostics() const;
 
+    /// Resident set size in GB. Message thread only — this makes a Mach syscall.
+    static double residentMemoryGb();
+
     core::AiOutputStage& outputStage() noexcept { return output_stage_; }
     core::Health health() const noexcept { return output_stage_.safetyMonitor().health(); }
     void recoverFromDegraded();

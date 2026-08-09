@@ -225,7 +225,10 @@ void MainComponent::refreshStatus() {
       << "  transformer         " << juce::String(snap.generationTransformerMs, 2) << " ms\n"
       << "  headroom            " << juce::String(snap.generationHeadroomRatio() * 100.0f, 1) << " % of budget\n"
       << "\n"
-      << "Audio underruns       " << juce::String((juce::int64)snap.audioUnderruns) << "\n"
+      << "Audio underruns       " << juce::String((juce::int64)snap.audioUnderruns)
+                                  << "   (while generating)\n"
+      << "  absorbed by priming " << juce::String((juce::int64)engine_.outputStage()
+                                     .safetyMonitor().primingUnderruns()) << "\n"
       << "Dropped frames (MRT2) " << juce::String((juce::int64)snap.droppedFrames) << "\n"
       << "Blocks processed      " << juce::String((juce::int64)snap.blocksProcessed) << "\n"
       << "Health                " << toString(engine_.health()) << "\n"
@@ -236,7 +239,7 @@ void MainComponent::refreshStatus() {
       << "CPU (audio)           " << juce::String(snap.audioCpuLoad * 100.0f, 1) << " %\n"
       << "\n"
       << "MIDI                  not implemented (Phase 1)\n"
-      << "Memory                not measured\n";
+      << "Memory                " << juce::String(snap.memoryUsageGb, 2) << " GB\n";
 
     // Preserve the caret/scroll so the panel does not fight the user at 10 Hz.
     if (diagnostics_view_.getText() != d) {

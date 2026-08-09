@@ -93,6 +93,7 @@ public:
     void setGenerationBufferSamples(std::size_t samples) override;
 
     core::GenerationMetrics metrics() const override;
+    void resetDroppedFrames() noexcept override;
 
     const char* name() const noexcept override { return model_name_.c_str(); }
     bool isRealBackend() const noexcept override { return true; }
