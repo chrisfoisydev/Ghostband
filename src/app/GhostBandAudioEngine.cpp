@@ -77,7 +77,7 @@ void GhostBandAudioEngine::audioDeviceAboutToStart(juce::AudioIODevice* device) 
 
     if (sr != static_cast<double>(core::kSampleRate)) {
         Logger::instance().warn(LogCategory::Audio,
-                                "device is not at 48 kHz — MRT2 output will be mis-pitched",
+                                "device is not at 48 kHz - MRT2 output will be mis-pitched",
                                 {{"sample_rate", std::to_string(sr)}});
     }
 }
@@ -248,7 +248,7 @@ juce::String GhostBandAudioEngine::sampleRateWarning() const {
     const double sr = current_sample_rate_.load(std::memory_order_relaxed);
     if (sr <= 0.0 || sr == static_cast<double>(core::kSampleRate)) return {};
     return "Device is at " + juce::String(sr, 0) + " Hz. MRT2 generates 48 000 Hz and "
-           "GhostBand does not resample — set the interface to 48 kHz.";
+           "GhostBand does not resample - set the interface to 48 kHz.";
 }
 
 core::DiagnosticsSnapshot GhostBandAudioEngine::diagnostics() const {

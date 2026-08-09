@@ -12,6 +12,12 @@ namespace ghostband::app {
 
 namespace {
 
+// UI string literals are kept strictly ASCII. Non-ASCII characters (em dashes, middots)
+// arrive at the screen as mojibake — "PANIC — RELEASE" rendered as "PANIC â€ RELEASE" on
+// a real run, because JUCE reinterpreted the UTF-8 bytes. Anything a performer might read
+// mid-set has to be legible with certainty, so typography is not worth the risk here.
+// If a non-ASCII glyph is genuinely needed later, wrap it: juce::CharPointer_UTF8("...").
+
 // Dark, high-contrast, stage-hardware palette. No gradients, no purple, no sparkles.
 const juce::Colour kBackground{0xff0e0f11};
 const juce::Colour kPanel{0xff17191c};
@@ -181,12 +187,12 @@ void MainComponent::refreshStatus() {
     juce::String status = juce::String(toDisplayString(state));
     if (!engine_.hasRealBackend() && state != core::EngineState::Loading) {
         // CLAUDE.md rule 2: never present a non-generating backend as a working band.
-        status += "   ·   NO AI BAND (no model loaded)";
+        status += "   -   NO AI BAND (no model loaded)";
     }
-    if (engine_.isPanicked()) status += "   ·   PANIC";
+    if (engine_.isPanicked()) status += "   -   PANIC";
     status_label_.setText(status, juce::dontSendNotification);
 
-    panic_button_.setButtonText(engine_.isPanicked() ? "PANIC — RELEASE" : "PANIC");
+    panic_button_.setButtonText(engine_.isPanicked() ? "RELEASE PANIC" : "PANIC");
 
     start_button_.setEnabled(state == core::EngineState::Ready);
     stop_button_.setEnabled(state == core::EngineState::Running);
@@ -270,7 +276,7 @@ void MainComponent::paint(juce::Graphics& g) {
 
     g.setColour(kDim);
     g.setFont(juce::FontOptions(13.0f));
-    g.drawText("Your band follows you.  ·  Phase 0 technical spike",
+    g.drawText("Your band follows you.   Phase 0 technical spike",
                24, 50, 600, 20, juce::Justification::left);
 
     const auto health = engine_.health();

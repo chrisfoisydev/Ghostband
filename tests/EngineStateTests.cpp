@@ -3,6 +3,7 @@
 
 #include "TestMain.h"
 #include "core/EngineState.h"
+#include "core/SafetyMonitor.h"
 
 #include <thread>
 #include <vector>
@@ -147,6 +148,28 @@ TEST("display strings are stage-legible and never empty") {
     CHECK(std::string(toDisplayString(EngineState::Running)) == "GENERATING");
     CHECK(std::string(toDisplayString(EngineState::Error)) == "ERROR");
     CHECK(std::string(toString(EngineState::Loading)) == "Loading");
+}
+
+TEST("all performer-facing display strings are pure ASCII") {
+    // Non-ASCII in a UI literal reached the screen as mojibake on a real run:
+    // "PANIC - RELEASE" rendered as "PANIC a<euro> RELEASE". Anything a performer reads
+    // mid-set has to be legible with certainty, so this is guarded rather than trusted.
+    auto isAscii = [](const char* s) {
+        for (const char* p = s; *p != '\0'; ++p) {
+            if (static_cast<unsigned char>(*p) > 127) return false;
+        }
+        return true;
+    };
+
+    for (auto s : {EngineState::Unloaded, EngineState::Loading, EngineState::Ready,
+                   EngineState::Running, EngineState::Error}) {
+        CHECK(isAscii(toDisplayString(s)));
+        CHECK(isAscii(toString(s)));
+    }
+    for (auto h : {Health::Healthy, Health::Warning, Health::Degraded}) {
+        CHECK(isAscii(toDisplayString(h)));
+        CHECK(isAscii(toString(h)));
+    }
 }
 
 TEST_MAIN_END()
