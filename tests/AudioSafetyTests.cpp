@@ -608,4 +608,18 @@ TEST("generation headroom ratio flags a model that cannot keep up") {
     CHECK(snap.generationHeadroomRatio() > 1.0f);
 }
 
+TEST("read-only callers can reach the limiter and monitor") {
+    // Regression: controlLatency() is const and needs the limiter's lookahead. Only the
+    // non-const accessor existed, so the app failed to compile on the Mac while the
+    // portable build stayed green — the exact blind spot of a core that CI can build and
+    // an app that it cannot.
+    AiOutputStage stage;
+    stage.prepare(kSr, 1024);
+    const AiOutputStage& ro = stage;
+
+    CHECK(ro.limiter().latencySamples() > 0u);
+    CHECK(ro.safetyMonitor().health() == Health::Healthy);
+    CHECK(ro.panicLatencySamples() > 0u);
+}
+
 TEST_MAIN_END()

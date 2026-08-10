@@ -97,6 +97,9 @@ public:
     SafetyMonitor& safetyMonitor() noexcept { return monitor_; }
     const SafetyMonitor& safetyMonitor() const noexcept { return monitor_; }
     SafetyLimiter& limiter() noexcept { return limiter_; }
+    /// Const overload: read-only callers (diagnostics, latency reporting) need the
+    /// limiter's lookahead without being able to reconfigure it.
+    const SafetyLimiter& limiter() const noexcept { return limiter_; }
     Diagnostics& diagnostics() noexcept { return diagnostics_; }
     const Diagnostics& diagnostics() const noexcept { return diagnostics_; }
 
