@@ -20,6 +20,22 @@ namespace ghostband::app {
 ///
 /// What is here: model status, START/STOP, PANIC, a prompt field, an audio-device
 /// selector, and the diagnostics the spike exists to produce.
+/// Monospaced multi-line text that can live inside a Viewport.
+///
+/// Replaces a juce::TextEditor for the diagnostics panel. The panel is rewritten at 10 Hz,
+/// and TextEditor::setText resets the scroll position on every rewrite — so the view
+/// snapped back to the top ten times a second and could not be scrolled at all. A
+/// Viewport keeps its own scroll offset across content changes, which a TextEditor's
+/// internal one does not expose.
+class DiagnosticsText : public juce::Component {
+public:
+    void setContent(const juce::String& text, int viewWidth);
+    void paint(juce::Graphics& g) override;
+
+private:
+    juce::StringArray lines_;
+};
+
 class MainComponent : public juce::Component,
                       private juce::Timer,
                       private juce::MidiKeyboardState::Listener {
@@ -91,7 +107,8 @@ private:
 
     juce::Label status_label_;
     juce::Label warning_label_;
-    juce::TextEditor diagnostics_view_;
+    juce::Viewport diagnostics_viewport_;
+    DiagnosticsText diagnostics_text_;
 
     std::unique_ptr<juce::AudioDeviceSelectorComponent> device_selector_;
 

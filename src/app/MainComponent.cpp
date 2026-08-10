@@ -41,6 +41,32 @@ juce::String promptStatusText(core::PromptStatus s) {
 
 } // namespace
 
+namespace {
+constexpr int kDiagLineHeight = 17;
+constexpr float kDiagFontHeight = 13.0f;
+} // namespace
+
+void DiagnosticsText::setContent(const juce::String& text, int viewWidth) {
+    juce::StringArray next;
+    next.addLines(text);
+    if (next == lines_ && getWidth() == viewWidth) return; // no repaint if nothing moved
+
+    lines_ = std::move(next);
+    setSize(juce::jmax(viewWidth, 10), juce::jmax(lines_.size() * kDiagLineHeight, 10));
+    repaint();
+}
+
+void DiagnosticsText::paint(juce::Graphics& g) {
+    g.fillAll(kPanel);
+    g.setColour(kDim);
+    g.setFont(juce::FontOptions(juce::Font::getDefaultMonospacedFontName(),
+                                kDiagFontHeight, juce::Font::plain));
+
+    for (int i = 0; i < lines_.size(); ++i) {
+        g.drawSingleLineText(lines_[i], 8, (i + 1) * kDiagLineHeight - 4);
+    }
+}
+
 MainComponent::MainComponent() {
     const juce::String audio_error = engine_.initialise();
 
@@ -144,13 +170,9 @@ MainComponent::MainComponent() {
     addAndMakeVisible(warning_label_);
     warning_label_.setColour(juce::Label::textColourId, kWarn);
 
-    addAndMakeVisible(diagnostics_view_);
-    diagnostics_view_.setMultiLine(true);
-    diagnostics_view_.setReadOnly(true);
-    diagnostics_view_.setFont(juce::FontOptions(juce::Font::getDefaultMonospacedFontName(),
-                                                13.0f, juce::Font::plain));
-    diagnostics_view_.setColour(juce::TextEditor::backgroundColourId, kPanel);
-    diagnostics_view_.setColour(juce::TextEditor::textColourId, kDim);
+    addAndMakeVisible(diagnostics_viewport_);
+    diagnostics_viewport_.setViewedComponent(&diagnostics_text_, false);
+    diagnostics_viewport_.setScrollBarsShown(true, false);
 
     device_selector_ = std::make_unique<juce::AudioDeviceSelectorComponent>(
         engine_.deviceManager(),
@@ -355,10 +377,9 @@ void MainComponent::refreshStatus() {
                                   << "   " << juce::String(chord_notes) << "\n"
       << "Memory                " << juce::String(snap.memoryUsageGb, 2) << " GB\n";
 
-    // Preserve the caret/scroll so the panel does not fight the user at 10 Hz.
-    if (diagnostics_view_.getText() != d) {
-        diagnostics_view_.setText(d, juce::dontSendNotification);
-    }
+    // The Viewport owns the scroll offset, so rewriting the content at 10 Hz no longer
+    // fights the user. setContent() also skips the repaint entirely when nothing changed.
+    diagnostics_text_.setContent(d, diagnostics_viewport_.getMaximumVisibleWidth());
 }
 
 void MainComponent::drawWordmark(juce::Graphics& g, float x, float baseline, float height) {
@@ -451,7 +472,7 @@ void MainComponent::resized() {
 
     area.removeFromTop(12);
     auto lower = area;
-    diagnostics_view_.setBounds(lower.removeFromLeft(lower.getWidth() / 2).reduced(0, 0));
+    diagnostics_viewport_.setBounds(lower.removeFromLeft(lower.getWidth() / 2));
     lower.removeFromLeft(12);
     if (device_selector_) device_selector_->setBounds(lower);
 }
