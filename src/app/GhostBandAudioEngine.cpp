@@ -218,7 +218,8 @@ void GhostBandAudioEngine::loadModelAsync(const juce::File& resourceDir,
         }
 
         if (ok) {
-            mrt2->setGenerationBufferSamples(core::kDefaultGenerationBufferSamples);
+            mrt2->setGenerationBufferSamples(
+                static_cast<std::size_t>(buffer_frames_) * core::kFrameSamples);
         }
 
         juce::MessageManager::callAsync(
@@ -298,6 +299,22 @@ void GhostBandAudioEngine::setTextPrompt(const juce::String& prompt) {
     backend_->setTextPrompts(variants, weights);
     Logger::instance().info(LogCategory::Generation, "prompt set",
                             {{"variants", std::to_string(variants.size())}});
+}
+
+core::ControlLatencyEstimate GhostBandAudioEngine::controlLatency() const {
+    return core::estimateControlLatency(
+        current_sample_rate_.load(std::memory_order_relaxed),
+        static_cast<std::size_t>(buffer_frames_) * core::kFrameSamples,
+        static_cast<std::size_t>(current_block_size_.load(std::memory_order_relaxed)),
+        output_stage_.limiter().latencySamples());
+}
+
+void GhostBandAudioEngine::setGenerationBufferFrames(int frames) {
+    buffer_frames_ = juce::jlimit(1, 4, frames);
+    backend_->setGenerationBufferSamples(
+        static_cast<std::size_t>(buffer_frames_) * core::kFrameSamples);
+    Logger::instance().info(LogCategory::Audio, "generation buffer changed",
+                            {{"frames", std::to_string(buffer_frames_)}});
 }
 
 void GhostBandAudioEngine::setAiIntensity(float intensity) {

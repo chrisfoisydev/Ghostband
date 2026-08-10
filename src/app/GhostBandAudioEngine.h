@@ -8,6 +8,7 @@
 #include "core/AiOutputStage.h"
 #include "core/EngineState.h"
 #include "core/IGenerationBackend.h"
+#include "core/ControlLatency.h"
 #include "core/IntensityMacro.h"
 #include "core/MidiHarmonyState.h"
 
@@ -62,6 +63,19 @@ public:
     /// that intensity afterwards costs only a blend-weight write. Encoding per knob
     /// movement would stall on MusicCoCa mid-performance.
     void setTextPrompt(const juce::String& prompt);
+
+    /// The prompt currently encoded into MRT2 — not what is typed in the editor. The UI
+    /// compares the two so an unapplied edit is visible rather than silently ignored.
+    juce::String appliedPrompt() const { return base_prompt_; }
+
+    /// Transport delay from a control change to affected audio leaving the device.
+    /// Computed from live buffer state; excludes MRT2's own musical response time.
+    core::ControlLatencyEstimate controlLatency() const;
+
+    /// Generation buffer, in whole MRT2 frames (1 frame = 40 ms). Fewer frames means
+    /// lower latency and less margin against a late inference frame.
+    void setGenerationBufferFrames(int frames);
+    int generationBufferFrames() const noexcept { return buffer_frames_; }
 
     /// **How much the band plays.** Distinct from AI Output Level, which is how loud.
     void setAiIntensity(float intensity);
@@ -149,6 +163,7 @@ private:
     core::MidiHarmonyState harmony_;
     core::IntensityMacro intensity_;
     juce::String base_prompt_;
+    int buffer_frames_ = 2;
     juce::StringArray open_midi_inputs_;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(GhostBandAudioEngine)

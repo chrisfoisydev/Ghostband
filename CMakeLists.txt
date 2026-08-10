@@ -73,6 +73,7 @@ add_library(ghostband_core STATIC
     src/core/MidiHarmonyState.cpp
     src/core/ChordNamer.cpp
     src/core/IntensityMacro.cpp
+    src/core/ControlLatency.cpp
 )
 add_library(ghostband::core ALIAS ghostband_core)
 

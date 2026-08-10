@@ -77,7 +77,29 @@ MainComponent::MainComponent() {
     prompt_editor_.setReturnKeyStartsNewLine(false);
     prompt_editor_.setText("warm organic indie folk ensemble, piano, bass and restrained "
                            "percussion, instrumental");
-    prompt_editor_.onReturnKey = [this] { engine_.setTextPrompt(prompt_editor_.getText()); };
+    // Three ways to apply, because one was not enough: Enter, focus loss, and the
+    // button. The first real run showed every prompt edit being silently discarded.
+    prompt_editor_.onReturnKey = [this] { applyPrompt(); };
+    prompt_editor_.onFocusLost = [this] { applyPrompt(); };
+
+    addAndMakeVisible(apply_prompt_button_);
+    apply_prompt_button_.onClick = [this] { applyPrompt(); };
+
+    addAndMakeVisible(prompt_status_label_);
+    prompt_status_label_.setColour(juce::Label::textColourId, kDim);
+
+    addAndMakeVisible(buffer_label_);
+    buffer_label_.setText("GEN BUFFER", juce::dontSendNotification);
+    buffer_label_.setColour(juce::Label::textColourId, kDim);
+
+    addAndMakeVisible(buffer_combo_);
+    buffer_combo_.addItem("1 frame (40 ms) - lowest latency", 1);
+    buffer_combo_.addItem("2 frames (80 ms) - default", 2);
+    buffer_combo_.addItem("3 frames (120 ms) - most margin", 3);
+    buffer_combo_.setSelectedId(2, juce::dontSendNotification);
+    buffer_combo_.onChange = [this] {
+        engine_.setGenerationBufferFrames(buffer_combo_.getSelectedId());
+    };
 
     addAndMakeVisible(level_label_);
     level_label_.setText("AI OUTPUT LEVEL", juce::dontSendNotification);
@@ -152,7 +174,7 @@ MainComponent::MainComponent() {
     // that moment is skipped by its null guard — permanently, because the size never
     // changes again afterwards. Sizing first left the on-screen keyboard and the audio
     // device selector laid out at zero size and therefore invisible.
-    setSize(880, 860);
+    setSize(940, 900);
 }
 
 MainComponent::~MainComponent() {
@@ -218,13 +240,29 @@ bool MainComponent::keyPressed(const juce::KeyPress& key) {
     return false;
 }
 
+void MainComponent::applyPrompt() {
+    engine_.setTextPrompt(prompt_editor_.getText());
+    refreshStatus();
+}
+
 void MainComponent::timerCallback() { refreshStatus(); }
 
 void MainComponent::refreshStatus() {
     const auto snap = engine_.diagnostics();
     const auto state = engine_.engineState();
+    const auto cl = engine_.controlLatency();
 
     const auto ip = engine_.intensityParams();
+
+    // Is the typed prompt the one MRT2 is actually using? Showing this removes the
+    // "did that take effect?" doubt that hid the silent-discard bug for a whole session.
+    const bool prompt_dirty = prompt_editor_.getText() != engine_.appliedPrompt();
+    apply_prompt_button_.setEnabled(prompt_dirty);
+    prompt_status_label_.setText(
+        prompt_dirty ? "NOT APPLIED - press APPLY PROMPT"
+                     : "applied  (" + juce::String(promptStatusText(engine_.promptStatus())) + ")",
+        juce::dontSendNotification);
+    prompt_status_label_.setColour(juce::Label::textColourId, prompt_dirty ? kWarn : kDim);
 
     // Detected harmony. Display only — MRT2 is steered by the raw notes, never by this
     // label, so a naming miss can never become a wrong chord.
@@ -275,6 +313,14 @@ void MainComponent::refreshStatus() {
       << "Generation buffer     " << juce::String((int)snap.generationBufferAvailable) << " / "
                                   << juce::String((int)snap.generationBufferCapacity) << " samples\n"
       << "PANIC latency         " << juce::String(engine_.outputStage().panicLatencyMs(), 1) << " ms\n"
+      << "\n"
+      << "Control latency       " << juce::String(cl.typicalMs, 1) << " ms typical, "
+                                  << juce::String(cl.worstCaseMs, 1) << " ms worst\n"
+      << "  frame quantisation  0-" << juce::String(cl.frameQuantisationMaxMs, 1) << " ms\n"
+      << "  generation buffer   " << juce::String(cl.generationBufferMs, 1) << " ms\n"
+      << "  device buffer       " << juce::String(cl.deviceBufferMs, 1) << " ms\n"
+      << "  limiter lookahead   " << juce::String(cl.limiterLookaheadMs, 1) << " ms\n"
+      << "  + MRT2 response     ~200 ms (upstream, not measured here)\n"
       << "\n"
       << "Generation frame      " << juce::String(snap.generationTotalMs, 2) << " ms  (budget 40.00 ms)\n"
       << "  transformer         " << juce::String(snap.generationTransformerMs, 2) << " ms\n"
@@ -376,7 +422,16 @@ void MainComponent::resized() {
     recover_button_.setBounds(buttons.removeFromRight(130).reduced(2));
 
     area.removeFromTop(12);
-    prompt_editor_.setBounds(area.removeFromTop(60));
+    auto prompt_row = area.removeFromTop(60);
+    auto prompt_side = prompt_row.removeFromRight(200);
+    prompt_editor_.setBounds(prompt_row);
+    apply_prompt_button_.setBounds(prompt_side.removeFromTop(30).reduced(4, 2));
+    prompt_status_label_.setBounds(prompt_side.reduced(4, 2));
+
+    area.removeFromTop(6);
+    auto buffer_row = area.removeFromTop(26);
+    buffer_label_.setBounds(buffer_row.removeFromLeft(150));
+    buffer_combo_.setBounds(buffer_row.removeFromLeft(280));
 
     area.removeFromTop(8);
     auto intensity_row = area.removeFromTop(28);

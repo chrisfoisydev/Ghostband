@@ -38,6 +38,7 @@ private:
     void handleNoteOn(juce::MidiKeyboardState*, int channel, int note, float velocity) override;
     void handleNoteOff(juce::MidiKeyboardState*, int channel, int note, float velocity) override;
     void refreshStatus();
+    void applyPrompt();
     void loadModel();
 
     /// Draw the GHOSTBAND wordmark: "GHOST" outlined, "BAND" solid, set as one word.
@@ -62,6 +63,15 @@ private:
     juce::ToggleButton ai_band_toggle_{"AI BAND"};
 
     juce::TextEditor prompt_editor_;
+    /// Explicit apply. Relying on Enter alone silently swallowed every prompt edit on the
+    /// first real run — the model kept its load-time prompt and nothing said so.
+    juce::TextButton apply_prompt_button_{"APPLY PROMPT"};
+    juce::Label prompt_status_label_;
+
+    /// Generation buffer in MRT2 frames. The one lever that meaningfully moves control
+    /// latency; exposed so it can be traded against underrun margin by ear.
+    juce::ComboBox buffer_combo_;
+    juce::Label buffer_label_;
     juce::Slider level_slider_;
     juce::Label level_label_;
 

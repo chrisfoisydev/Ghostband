@@ -233,3 +233,41 @@ it needs playing rather than analysis.
 audible change — then decide whether to trade buffer for latency. Do not tune by feel
 alone; the number matters for deciding whether foot-triggered section changes need
 lookahead in Phase 2.
+
+---
+
+## 13. ✅ FIXED — prompt edits were silently discarded
+
+**Found on hardware (2026-08-10). The band sounded identical regardless of what was typed
+in the prompt field.**
+
+**Diagnosis from the log**, which was decisive:
+
+```
+17:18:09 INFO [generation] prompt set variants=3
+[MagentaRT] Combined Prompt (3) tokens: 447 82 681 586 547 320 606 58 838 28 238 639
+17:18:12 INFO [generation] generation started
+...  (generation start/stop only, for seven more minutes)
+```
+
+`prompt set` appears **once**, at model load. Every edit afterwards never reached the
+engine, so the token vector could not change — MRT2 kept using its load-time prompt for
+the whole session.
+
+**Cause:** the only trigger was `TextEditor::onReturnKey`. Typing a prompt and clicking
+away did nothing, with no indication. Once the on-screen keyboard existed, focus moved
+between it and the text field constantly, making the failure the normal case rather than
+the exception.
+
+This is precisely the failure `CLAUDE.md` rule 2 exists to prevent: a control that looks
+live and quietly does nothing. It was not a "missing feature" — it was a working feature
+that could not be reached.
+
+**Fix:**
+- An explicit **APPLY PROMPT** button.
+- Apply on focus loss as well as Enter, so the obvious gestures all work.
+- A status line reading either `NOT APPLIED - press APPLY PROMPT` (amber) or
+  `applied (ready)`, so the typed text and the encoded text can never silently disagree.
+
+**Lesson worth keeping:** the app already logged everything needed to find this in
+seconds. Structured logging earned its cost here.
