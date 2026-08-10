@@ -109,10 +109,16 @@ cmake --build build -j && ctest --test-dir build --output-on-failure
 
 *End state: plug in a MIDI keyboard, hold a chord, hear MRT2 build an ensemble on it.*
 
-> **🟡 SUBSTANTIALLY MET, 2026-08-09.** Holding a chord steers the generated band, confirmed
-> by ear on an Apple M2 Pro. Reached via the on-screen keyboard rather than hardware — the
-> same `MidiHarmonyState` path a controller uses, so the remaining risk is device I/O, not
-> harmony logic. Latency is perceptible but musical (see below).
+> **🟡 SUBSTANTIALLY MET, 2026-08-09.** Holding a chord steers the generated band and the
+> AI Intensity macro audibly changes what the band plays — both confirmed by ear on an
+> Apple M2 Pro. That is both halves of the product thesis working: harmony answers *what
+> notes*, intensity answers *what the band is doing*.
+>
+> Reached via the on-screen keyboard rather than hardware — the same `MidiHarmonyState`
+> path a controller uses, so the remaining risk is device I/O, not harmony logic. Latency
+> is perceptible but musical (`KNOWN_ISSUES.md` §12). Outstanding in this phase: prompt
+> encode-status surfacing (1.4), the model selector with its hardware gate (1.5), and
+> measuring latency (1.8).
 
 | # | Task | Status |
 |---|---|---|
@@ -121,7 +127,7 @@ cmake --build build -j && ctest --test-dir build --output-on-failure
 | 1.3 | Chord naming for display (labels are display-only; MRT2 gets raw notes) | ✅ core done, **tested** (`ChordNamer`) |
 | 1.4 | Prompt editor + async encode status surfacing | ❌ |
 | 1.5 | AI on/off, output level, model selector, audio-device selector | ❌ — selector must **gate `mrt2_base` on hardware**; not real-time on M2 Pro (see MRT2_API_NOTES §1) |
-| 1.6 | `IntensityMacro` (see `ARCHITECTURE.md` §6) + retuning on real audio | 🟡 implemented + **tested**; wired to a slider. **Curve not yet judged by ear** |
+| 1.6 | `IntensityMacro` (see `ARCHITECTURE.md` §6) + retuning on real audio | ✅ **works on hardware** — audible, usable across the range. Fine-tuning deferred until section presets exist |
 | 1.7 | On-screen / computer-key keyboard, so harmony is testable without hardware | ✅ **works** |
 | 1.8 | Measure and characterise harmony latency | ❌ — perceptible by ear, never measured |
 

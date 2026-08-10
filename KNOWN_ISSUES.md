@@ -45,7 +45,7 @@ be assumed unstable. Pin the MRT2 checkout; do not track `main`.
 
 ---
 
-## 3. ⚠️ The AI Intensity mapping is an untested hypothesis
+## 3. 🟡 The AI Intensity mapping works, but its curve is untuned
 
 MRT2 exposes no density/intensity parameter. The macro in `ARCHITECTURE.md` §6 maps
 intensity onto prompt blend weights, `set_drumless`, `set_cfg_drums`,
@@ -62,15 +62,21 @@ prompt weights bounded and always summing to 1, drumless hysteresis that cannot 
 values inside sane bounds, and — the two hard rules — it never touches `cfg_notes` or any
 gain.
 
-**They cannot tell us whether it sounds right.** Specifically unknown until played:
+**Confirmed working on hardware (2026-08-09):** the macro is audible and usable across its
+range on an Apple M2 Pro. Severity accordingly drops from "may be unusable" to "may want
+refinement".
+
+**Still unmeasured, and worth revisiting when section presets exist** — those bake
+intensity values in, so curve shape starts to matter more than it does with one live knob:
 1. Is the perceived change roughly even across the range, or does everything happen in the
    last 20%?
 2. Is intensity 0 too sparse to be musically useful, or a good "almost nothing" setting?
 3. Does the drumless threshold at 0.13/0.17 land somewhere musical?
 4. Are the sparse/full prompt suffixes actually the strongest available lever, as assumed?
 
-Evaluate before Phase 2: section presets bake intensity values in, so a bad curve would
-propagate into every song.
+Not a blocker for Phase 2. The mapping is isolated in `IntensityMacro::Tuning`, so section
+presets can be authored against the current curve and the curve retuned later without
+touching them.
 
 ---
 
