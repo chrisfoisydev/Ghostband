@@ -135,12 +135,22 @@ cmake --build build -j && ctest --test-dir build --output-on-failure
 
 *End state: perform an entire set without touching the MacBook.*
 
-Songs · Sections · per-section prompts + intensity · prev/next · Performance Mode ·
-MIDI foot controller · MIDI Learn · setlists · versioned persistence with migrations ·
-Song Map harmony mode. All ❌.
+| # | Task | Status |
+|---|---|---|
+| 2.1 | `Song` / `SongSection` model, validation, demo song | ✅ core done, **tested** |
+| 2.2 | `SectionController` — prev/next/jump/repeat + transition ramp | ✅ core done, **tested** |
+| 2.3 | Prompt-slot allocation across sections (`KNOWN_ISSUES` §4) | ❌ — the piece that makes changes stall-free |
+| 2.4 | Wire sections to the engine: prompt blend + intensity per section | ❌ |
+| 2.5 | Performance Mode UI (huge section name, next preview, minimal chrome) | ❌ |
+| 2.6 | MIDI foot controller + MIDI Learn + persistent mappings | ❌ |
+| 2.7 | Setlists | ❌ |
+| 2.8 | Versioned persistence with migrations | ❌ |
+| 2.9 | Song Map harmony mode | ❌ |
 
 The prompt-slot pre-encoding strategy (`ARCHITECTURE.md` §8) is a Phase 2 prerequisite,
-not an optimisation — section changes are unusable without it.
+not an optimisation — section changes are unusable without it. The mechanism is already
+proven in miniature by `IntensityMacro`, which pre-encodes three density variants and
+switches between them with blend weights alone.
 
 ## Phase 3 — Guitar Follow (experimental)
 

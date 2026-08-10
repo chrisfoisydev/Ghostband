@@ -74,6 +74,8 @@ add_library(ghostband_core STATIC
     src/core/ChordNamer.cpp
     src/core/IntensityMacro.cpp
     src/core/ControlLatency.cpp
+    src/core/Song.cpp
+    src/core/SectionController.cpp
 )
 add_library(ghostband::core ALIAS ghostband_core)
 
