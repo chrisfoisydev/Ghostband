@@ -6,6 +6,7 @@
 #pragma once
 
 #include "GhostBandAudioEngine.h"
+#include "PerformanceView.h"
 
 #include <juce_gui_extra/juce_gui_extra.h>
 
@@ -69,6 +70,10 @@ private:
     GhostBandAudioEngine engine_;
 
     juce::TextButton load_button_{"LOAD MODEL"};
+    juce::TextButton load_song_button_{"LOAD DEMO SONG"};
+    /// Enters the stage screen. Disabled until a song exists, because an empty
+    /// Performance Mode would be a screen that promises a set it cannot run.
+    juce::TextButton performance_button_{"PERFORMANCE MODE"};
     juce::TextButton start_button_{"START"};
     juce::TextButton stop_button_{"STOP"};
     juce::TextButton panic_button_{"PANIC"};
@@ -111,6 +116,12 @@ private:
     DiagnosticsText diagnostics_text_;
 
     std::unique_ptr<juce::AudioDeviceSelectorComponent> device_selector_;
+
+    /// Owned but only visible in performance mode. Kept alive rather than rebuilt so
+    /// entering the stage screen mid-set cannot allocate or stall.
+    std::unique_ptr<PerformanceView> performance_view_;
+    bool performance_mode_ = false;
+    void setPerformanceMode(bool on);
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MainComponent)
 };

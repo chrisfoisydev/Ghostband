@@ -11,6 +11,8 @@
 #include "core/ControlLatency.h"
 #include "core/IntensityMacro.h"
 #include "core/MidiHarmonyState.h"
+#include "core/PerformanceEngine.h"
+#include "core/Song.h"
 
 #include <juce_audio_devices/juce_audio_devices.h>
 #include <juce_audio_utils/juce_audio_utils.h>
@@ -25,7 +27,8 @@ namespace ghostband::app {
 /// The UI talks to this class and never to the backend directly, so there is exactly one
 /// place where the audio callback's invariants are enforced.
 class GhostBandAudioEngine : private juce::AudioIODeviceCallback,
-                             private juce::MidiInputCallback {
+                             private juce::MidiInputCallback,
+                             private juce::Timer {
 public:
     GhostBandAudioEngine();
     ~GhostBandAudioEngine() override;
@@ -53,8 +56,8 @@ public:
     void clearPanic();
     bool isPanicked() const noexcept { return output_stage_.isPanicked(); }
 
-    void setAiBandOn(bool on) { output_stage_.setMuted(!on); }
-    bool isAiBandOn() const noexcept { return !output_stage_.isMuted(); }
+    void setAiBandOn(bool on) { ai_band_on_ = on; updateAiAudible(); }
+    bool isAiBandOn() const noexcept { return ai_band_on_; }
 
     void setOutputLevelDb(float db) { output_stage_.setOutputLevelDb(db); }
     float outputLevelDb() const noexcept { return output_stage_.outputLevelDb(); }
@@ -82,6 +85,23 @@ public:
     float aiIntensity() const noexcept { return intensity_.intensity(); }
     int aiIntensityPercent() const noexcept { return intensity_.percent(); }
     core::IntensityParams intensityParams() const noexcept { return intensity_.compute(); }
+    /// @}
+
+    /// @name Songs and sections (Phase 2)
+    /// @{
+    /// Load a song. The engine keeps its own copy, so the caller need not outlive it.
+    bool loadSong(const core::Song& song);
+    void loadDemoSong();
+    bool hasSong() const noexcept { return performance_.hasSong(); }
+    core::PerformanceEngine& performance() noexcept { return performance_; }
+    const core::PerformanceEngine& performance() const noexcept { return performance_; }
+
+    /// Section navigation. Each re-applies AI-enabled state, so a section that turns the
+    /// band off mutes the output stage rather than stopping generation — stopping would
+    /// cost a restart on the way back in.
+    bool nextSection();
+    bool previousSection();
+    bool repeatSection();
     /// @}
 
     /// @name Harmony (Phase 1)
@@ -134,6 +154,13 @@ private:
     void audioDeviceStopped() override;
     void audioDeviceError(const juce::String& errorMessage) override;
 
+    // juce::Timer — drives section transitions. Control thread, ~50 Hz.
+    void timerCallback() override;
+
+    /// The band is audible only when the performer has it on AND the current section
+    /// wants it. Recomputing from both avoids one silently overriding the other.
+    void updateAiAudible();
+
     // juce::MidiInputCallback — called on the MIDI thread.
     void handleIncomingMidiMessage(juce::MidiInput* source,
                                    const juce::MidiMessage& message) override;
@@ -161,6 +188,12 @@ private:
     std::unique_ptr<juce::ThreadPool> load_pool_;
 
     core::MidiHarmonyState harmony_;
+    core::PerformanceEngine performance_;
+    /// Owned copy: Song is cheap to hold and this removes a lifetime trap where a UI
+    /// component's song outlives, or fails to outlive, the engine driving it.
+    core::Song loaded_song_;
+    bool ai_band_on_ = false;
+    double last_tick_ms_ = 0.0;
     core::IntensityMacro intensity_;
     juce::String base_prompt_;
     int buffer_frames_ = 2;

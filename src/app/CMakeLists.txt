@@ -48,6 +48,7 @@ juce_add_gui_app(GhostBand
 target_sources(GhostBand PRIVATE
     Main.cpp
     MainComponent.cpp
+    PerformanceView.cpp
     GhostBandAudioEngine.cpp
     ../backend/Mrt2Backend.cpp
 )

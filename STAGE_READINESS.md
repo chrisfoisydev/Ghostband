@@ -17,7 +17,7 @@ Legend: ✅ verified by execution · ⚠️ implemented but unverified · ❌ no
 | 2 | MRT2 Small loads reliably | 🟡 | loads inside GhostBand (once); repetition untested |
 | 3 | Continuous streaming works | 🟡 | **audible, 0 underruns, 0 dropped frames** over ~2 min on M2 Pro at 17.23/40 ms; no 60-min soak |
 | 4 | MIDI chords steer generated harmony | 🟡 | **confirmed by ear** on M2 Pro via the on-screen keyboard: held chords steer the band, changes follow. Latency perceptible but musical. Hardware controller untested. |
-| 5 | Section changes work | ❌ | Phase 2 |
+| 5 | Section changes work | ⚠️ | engine **tested** in core; Performance Mode written but uncompiled, never heard |
 | 6 | MIDI footswitch control works | ❌ | Phase 2 |
 | 7 | AI mute works | 🟡 | unit-tested + wired to AI BAND; audible path confirmed (peak -12.6 dBFS, RMS -20.1), mute itself not yet A/B'd |
 | 8 | **PANIC always works** | ⚠️ | fade **unit-tested**; wired to button + Escape; app reports 32.0 ms latency; not yet confirmed audibly |
@@ -27,7 +27,7 @@ Legend: ✅ verified by execution · ⚠️ implemented but unverified · ❌ no
 | 12 | Model errors do not crash the app | ⚠️ | `EngineState` error path **tested**; real MRT2 errors unobserved |
 | 13 | Songs persist | ❌ | Phase 2 |
 | 14 | Setlists persist | ❌ | Phase 2 |
-| 15 | Performance Mode works without a mouse | ❌ | Phase 2 |
+| 15 | Performance Mode works without a mouse | ⚠️ | arrows/Escape/R implemented; unverified. Foot control is 2.6 |
 | 16 | Generated band stays instrumental where practical | ❌ | prompt policy only; unverified |
 | 17 | **No feature claims something that isn't implemented** | ✅ | enforced by `CLAUDE.md` rule 2; this file is the audit |
 

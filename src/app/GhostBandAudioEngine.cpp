@@ -64,15 +64,65 @@ bool GhostBandAudioEngine::anyMidiDeviceConnected() const noexcept {
     return !open_midi_inputs_.isEmpty();
 }
 
+bool GhostBandAudioEngine::loadSong(const core::Song& song) {
+    loaded_song_ = song;
+    performance_.setBackend(backend_.get());
+    if (!performance_.loadSong(&loaded_song_)) return false;
+
+    // The song's prompt now owns the slots, so the free-play prompt no longer applies.
+    base_prompt_ = juce::String(loaded_song_.defaultStylePrompt);
+    updateAiAudible();
+    return true;
+}
+
+void GhostBandAudioEngine::loadDemoSong() { loadSong(core::makeDemoSong()); }
+
+bool GhostBandAudioEngine::nextSection() {
+    if (!performance_.goToNext()) return false;
+    updateAiAudible();
+    return true;
+}
+
+bool GhostBandAudioEngine::previousSection() {
+    if (!performance_.goToPrevious()) return false;
+    updateAiAudible();
+    return true;
+}
+
+bool GhostBandAudioEngine::repeatSection() {
+    if (!performance_.retriggerCurrent()) return false;
+    updateAiAudible();
+    return true;
+}
+
+void GhostBandAudioEngine::updateAiAudible() {
+    const bool section_wants_ai = !performance_.hasSong() || performance_.currentSectionAiEnabled();
+    output_stage_.setMuted(!(ai_band_on_ && section_wants_ai));
+}
+
+void GhostBandAudioEngine::timerCallback() {
+    // Wall-clock delta rather than the nominal interval: a stalled message thread would
+    // otherwise stretch every transition without anything saying so.
+    const double now = juce::Time::getMillisecondCounterHiRes();
+    const double delta = last_tick_ms_ > 0.0 ? now - last_tick_ms_ : 0.0;
+    last_tick_ms_ = now;
+    performance_.tick(delta);
+}
+
 GhostBandAudioEngine::GhostBandAudioEngine() {
     // Start on the honest backend: no model is loaded yet, and NullBackend reports that
     // truthfully rather than pretending a band exists.
     backend_ = std::make_shared<backend::NullBackend>();
     harmony_.setBackend(backend_.get());
     load_pool_ = std::make_unique<juce::ThreadPool>(1);
+    performance_.setBackend(backend_.get());
+    // 50 Hz: transitions are 250-2000 ms and blend weights only affect the next 40 ms
+    // model frame, so anything faster would be false precision.
+    startTimerHz(50);
 }
 
 GhostBandAudioEngine::~GhostBandAudioEngine() {
+    stopTimer();
     device_manager_.removeMidiInputDeviceCallback({}, this);
     device_manager_.removeAudioCallback(this);
     device_manager_.closeAudioDevice();
@@ -239,6 +289,7 @@ void GhostBandAudioEngine::loadModelAsync(const juce::File& resourceDir,
                 backend_ = mrt2;
                 harmony_.allNotesOff();          // the old backend's notes are gone
                 harmony_.setBackend(backend_.get());
+                performance_.setBackend(backend_.get());
                 device_manager_.addAudioCallback(this);
 
                 output_stage_.diagnostics().setModelName(backend_->name());

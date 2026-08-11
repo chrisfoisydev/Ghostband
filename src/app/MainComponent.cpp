@@ -73,6 +73,15 @@ MainComponent::MainComponent() {
     addAndMakeVisible(load_button_);
     load_button_.onClick = [this] { loadModel(); };
 
+    addAndMakeVisible(load_song_button_);
+    load_song_button_.onClick = [this] {
+        engine_.loadDemoSong();
+        refreshStatus();
+    };
+
+    addAndMakeVisible(performance_button_);
+    performance_button_.onClick = [this] { setPerformanceMode(true); };
+
     addAndMakeVisible(start_button_);
     start_button_.onClick = [this] { engine_.startGeneration(); refreshStatus(); };
 
@@ -174,6 +183,10 @@ MainComponent::MainComponent() {
     diagnostics_viewport_.setViewedComponent(&diagnostics_text_, false);
     diagnostics_viewport_.setScrollBarsShown(true, false);
 
+    performance_view_ = std::make_unique<PerformanceView>(engine_);
+    performance_view_->onExitRequested = [this] { setPerformanceMode(false); };
+    addChildComponent(*performance_view_);   // built now, shown only on demand
+
     device_selector_ = std::make_unique<juce::AudioDeviceSelectorComponent>(
         engine_.deviceManager(),
         /*minInput*/ 0, /*maxInput*/ 0,   // Phase 0 has no input: GhostBand is additive only
@@ -196,7 +209,7 @@ MainComponent::MainComponent() {
     // that moment is skipped by its null guard — permanently, because the size never
     // changes again afterwards. Sizing first left the on-screen keyboard and the audio
     // device selector laid out at zero size and therefore invisible.
-    setSize(940, 900);
+    setSize(980, 920);
 }
 
 MainComponent::~MainComponent() {
@@ -267,6 +280,23 @@ void MainComponent::applyPrompt() {
     refreshStatus();
 }
 
+void MainComponent::setPerformanceMode(bool on) {
+    performance_mode_ = on;
+
+    // Everything except the stage view is hidden rather than destroyed, so returning to
+    // setup is instant and nothing is reallocated mid-performance.
+    for (int i = 0; i < getNumChildComponents(); ++i) {
+        auto* child = getChildComponent(i);
+        if (child != performance_view_.get()) child->setVisible(!on);
+    }
+    if (performance_view_ != nullptr) {
+        performance_view_->setVisible(on);
+        if (on) performance_view_->grabKeyboardFocus();
+    }
+    resized();
+    repaint();
+}
+
 void MainComponent::timerCallback() { refreshStatus(); }
 
 void MainComponent::refreshStatus() {
@@ -309,6 +339,7 @@ void MainComponent::refreshStatus() {
 
     panic_button_.setButtonText(engine_.isPanicked() ? "RELEASE PANIC" : "PANIC");
 
+    performance_button_.setEnabled(engine_.hasSong());
     start_button_.setEnabled(state == core::EngineState::Ready);
     stop_button_.setEnabled(state == core::EngineState::Running);
     ai_band_toggle_.setToggleState(engine_.isAiBandOn(), juce::dontSendNotification);
@@ -364,6 +395,17 @@ void MainComponent::refreshStatus() {
       << "MIDI                  " << (engine_.anyMidiDeviceConnected()
                                         ? engine_.midiInputNames().joinIntoString(", ")
                                         : juce::String("no device (use the on-screen keyboard)")) << "\n"
+      << "Song                  " << (engine_.hasSong()
+                                        ? juce::String(engine_.performance().song()->title)
+                                        : juce::String("none")) << "\n"
+      << "Section               " << (engine_.performance().sections().current() != nullptr
+                                        ? juce::String(engine_.performance().sections().current()->name)
+                                        : juce::String("-"))
+                                  << (engine_.performance().sections().isTransitioning()
+                                        ? "  (transitioning)" : "") << "\n"
+      << "  changes needing encode " << juce::String((juce::int64)engine_.performance()
+                                       .encodedChangeCount()) << "\n"
+      << "\n"
       << "AI intensity          " << juce::String(engine_.aiIntensityPercent()) << " %\n"
       << "  drums               " << (ip.drumless ? "removed (drumless)"
                                         : juce::String("cfg ") + juce::String(ip.cfgDrums, 2)) << "\n"
@@ -424,6 +466,9 @@ void MainComponent::paint(juce::Graphics& g) {
 }
 
 void MainComponent::resized() {
+    if (performance_view_ != nullptr) performance_view_->setBounds(getLocalBounds());
+    if (performance_mode_) return;   // the stage screen owns the whole window
+
     auto area = getLocalBounds().reduced(24);
     area.removeFromTop(60); // title block
 
@@ -435,7 +480,9 @@ void MainComponent::resized() {
     area.removeFromTop(8);
 
     auto buttons = area.removeFromTop(40);
-    load_button_.setBounds(buttons.removeFromLeft(140).reduced(2));
+    load_button_.setBounds(buttons.removeFromLeft(130).reduced(2));
+    load_song_button_.setBounds(buttons.removeFromLeft(150).reduced(2));
+    performance_button_.setBounds(buttons.removeFromLeft(170).reduced(2));
     start_button_.setBounds(buttons.removeFromLeft(100).reduced(2));
     stop_button_.setBounds(buttons.removeFromLeft(100).reduced(2));
     ai_band_toggle_.setBounds(buttons.removeFromLeft(120).reduced(2));
