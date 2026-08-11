@@ -5,6 +5,7 @@
 
 #pragma once
 
+#include "FootControlPanel.h"
 #include "GhostBandAudioEngine.h"
 #include "PerformanceView.h"
 
@@ -74,6 +75,7 @@ private:
     /// Enters the stage screen. Disabled until a song exists, because an empty
     /// Performance Mode would be a screen that promises a set it cannot run.
     juce::TextButton performance_button_{"PERFORMANCE MODE"};
+    juce::TextButton foot_control_button_{"FOOT CONTROL"};
     juce::TextButton start_button_{"START"};
     juce::TextButton stop_button_{"STOP"};
     juce::TextButton panic_button_{"PANIC"};
@@ -122,6 +124,17 @@ private:
     std::unique_ptr<PerformanceView> performance_view_;
     bool performance_mode_ = false;
     void setPerformanceMode(bool on);
+
+    /// Overlays the setup screen. Built once for the same reason as PerformanceView:
+    /// opening it must not allocate while the band is playing.
+    std::unique_ptr<FootControlPanel> foot_control_panel_;
+    bool foot_control_mode_ = false;
+    void setFootControlMode(bool on);
+
+    /// Show exactly one of setup / Performance Mode / foot control. Centralised because
+    /// two independent show-hide passes had already made the setup screen reappear
+    /// underneath the mapping panel.
+    void applyScreenVisibility();
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MainComponent)
 };

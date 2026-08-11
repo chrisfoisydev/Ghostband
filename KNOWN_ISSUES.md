@@ -289,3 +289,56 @@ that could not be reached.
 
 **Lesson worth keeping:** the app already logged everything needed to find this in
 seconds. Structured logging earned its cost here.
+
+---
+
+## 14. ⚠️ A note-bound footswitch steals that note from harmony
+
+**Impact:** one key on the MIDI keyboard stops contributing to the chord, silently, for
+as long as the mapping exists.
+
+GhostBand cannot tell a footswitch apart from a keyboard when both send note messages on
+the same port — the MIDI bytes are identical. When a message matches a foot-control
+binding it is consumed and does **not** reach `MidiHarmonyState`; the alternative, letting
+it do both, would mean stomping a pedal also plays a note under the band.
+
+Consequences of the choice:
+
+- The **defaults avoid it entirely** by using CC 80-84 rather than notes. These are
+  undefined in the MIDI spec, are what footswitch-to-MIDI boxes commonly send, and cannot
+  be produced by playing keys.
+- A performer whose controller only sends notes can still bind them via MIDI Learn, and
+  the foot-control screen warns which key they have given up.
+- Binding **CC 64** costs the sustain pedal for the same reason, and is warned about
+  separately.
+
+**Why not solve it properly:** the real fix is per-device routing — treat one MIDI input
+as the pedal and another as the keyboard. JUCE hands `handleIncomingMidiMessage` the
+source device, so the information is available; what is missing is the setup UI to
+designate a device and the persistence for it. That belongs with task 2.7/2.8 rather than
+being bolted on here.
+
+**Workaround today:** keep the defaults, or bind pedals to CCs. Both are one click on the
+FOOT CONTROL screen.
+
+---
+
+## 15. ⚠️ Foot control has never been driven by an actual pedal
+
+**Impact:** the whole of task 2.6 is verified only by unit tests and by reading the code.
+
+`MidiMappingSet` is covered by 33 tests that run and pass on Linux, including the press-
+only rule, the 120 ms debounce, learn semantics, binding theft, and settings-file
+corruption. What those tests cannot cover is everything below `core`:
+
+- No hardware MIDI foot controller has ever been connected to this project (see also §1).
+- The `GhostBandAudioEngine` wiring, `FootControlPanel`, and the mapping file have not
+  been compiled — they are macOS/JUCE code and this machine cannot build them.
+- The threading design (MIDI thread try-lock, PANIC latched immediately, everything else
+  drained at 50 Hz) is reasoned, not observed. It is the part most worth a second look on
+  hardware, because a race here shows up as a missed or doubled section change under load
+  — exactly the failure mode a performer cannot recover from on stage.
+
+**To close it:** build on the Mac, open FOOT CONTROL, learn each switch, confirm each row
+lights on press, then run a song end to end using only the pedal. Criterion 6 in
+`STAGE_READINESS.md` stays ❌ until that has happened.

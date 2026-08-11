@@ -69,7 +69,7 @@ The price is one indirection (`IGenerationBackend`). Worth it.
 |---|---|---|---|
 | **Audio callback** | CoreAudio via JUCE | `backend->readStereo()` → `AiOutputStage::process()` → device | allocate, lock, log, touch UI, call MRT2 lifecycle |
 | **MRT2 inference** | `magentart::core::RealtimeRunner` | `generate_frame()` @ 25 Hz, writes MRT2's ring buffer | (owned upstream) |
-| **MIDI input** | JUCE `MidiInputCallback` | note on/off → `backend->noteOn/Off` (atomic) | allocate, block |
+| **MIDI input** (one per open device) | JUCE `MidiInputCallback` | note on/off → `backend->noteOn/Off` (atomic); footswitch → action queue; PANIC latch | allocate, block, log |
 | **Message/UI** | JUCE | model load, prompts, section changes, diagnostics polling | block on audio |
 | **Text-encode worker** | MRT2 internal | MusicCoCa TFLite encode of prompts | (owned upstream) |
 
@@ -91,6 +91,34 @@ a second buffer would only add latency and a second place for underruns to hide.
 
 This is the one number most worth tuning on real hardware, and it is exposed in the
 diagnostics view rather than buried.
+
+### 3.2 Foot control crosses a thread boundary
+
+A footswitch press arrives on a MIDI thread — and there may be several, one per open
+device — but a section change touches the song model and writes prompts to the backend.
+Doing that from a device callback races the 50 Hz timer that drives transitions.
+
+The split:
+
+| Step | Thread | Why there |
+|---|---|---|
+| Decode message → binding, match, debounce | MIDI | fixed-size, no allocation; `MidiMappingSet` holds one entry per action for life |
+| **PANIC** | MIDI, immediately | an atomic latch over audio we already hold. Queueing the one control that must always work behind a message thread that might be busy would defeat its purpose |
+| Everything else | queued, drained by the 50 Hz timer | section changes, intensity, AI on/off — all message-thread work |
+| PANIC's belt-and-braces (backend mute, note release, log) | drained with the rest | idempotent; the fade has already happened |
+
+`MidiMappingSet` is not internally synchronised. The engine guards it with a `SpinLock`
+that the MIDI thread only ever **tries** — if the mapping screen holds it, that press is
+dropped rather than blocking a device thread. Every critical section is a handful of
+instructions over fixed-size storage, and none of them allocate.
+
+**Cost:** up to 20 ms of extra latency on a queued action, against the ~128 ms of
+transport delay a section change already carries. PANIC pays none of it.
+
+**Consume, don't duplicate.** A message that matches a binding does not also reach
+`MidiHarmonyState` — both edges of a bound note are swallowed, or harmony would see a
+release with no press. That is why the defaults are CCs rather than notes; see
+`KNOWN_ISSUES.md` §14.
 
 ---
 
@@ -226,10 +254,12 @@ sample-accurate ramping would be false precision.
 | `backend/NullBackend` | ✅ implemented, tested | honest silence; reports "no model" |
 | `backend/Mrt2Backend` | ⚠️ **written, never compiled** | macOS only; see below |
 | `app/` JUCE host | ⚠️ **written, never compiled** | macOS only; see below |
-| Songs / Sections / Setlists | ❌ not started | Phase 2 |
-| MIDI I/O, MIDI Learn | ❌ not started | Phase 1–2 |
+| Songs / Sections | ✅ implemented, tested | `Song`, `SectionController`, `PerformanceEngine` |
+| Setlists | ❌ not started | Phase 2.7 |
+| MIDI harmony input | ✅ works on hardware | `MidiHarmonyState`; on-screen keyboard uses the same path |
+| Foot control / MIDI Learn | 🟡 core tested, app layer **never compiled** | `MidiMappingSet`; see `KNOWN_ISSUES.md` §15 |
 | Guitar Follow | ❌ not started | Phase 3, experimental |
-| Persistence | ❌ not started | Phase 2 |
+| Persistence | 🟡 foot mappings only | versioned schema is Phase 2.8 |
 
 **⚠️ is load-bearing.** `Mrt2Backend` and the JUCE app are macOS/Apple-Silicon targets.
 This development container is Linux x86-64, where MRT2 refuses to configure by design and

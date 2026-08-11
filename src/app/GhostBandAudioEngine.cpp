@@ -17,10 +17,87 @@ namespace ghostband::app {
 using core::LogCategory;
 using core::Logger;
 
+namespace {
+
+/// Translate a JUCE message into a binding, plus whether it is a press.
+///
+/// CC >= 64 is "on" per the MIDI spec's switch convention, which is what momentary
+/// footswitches send. Note messages are matched on both edges — the binding has to
+/// consume the release too, or harmony would see a note-off it never saw a note-on for —
+/// but only `isNoteOn()` counts as a press, and that already treats velocity 0 as a
+/// release.
+bool toBinding(const juce::MidiMessage& m, core::MidiBinding& out, bool& pressed) {
+    if (m.isNoteOnOrOff()) {
+        out = {core::MidiBinding::Type::Note, m.getChannel(), m.getNoteNumber()};
+        pressed = m.isNoteOn();
+        return true;
+    }
+    if (m.isController()) {
+        out = {core::MidiBinding::Type::ControlChange, m.getChannel(),
+               m.getControllerNumber()};
+        pressed = m.getControllerValue() >= 64;
+        return true;
+    }
+    return false;
+}
+
+} // namespace
+
+bool GhostBandAudioEngine::routePerformanceAction(const juce::MidiMessage& message) {
+    core::MidiBinding binding;
+    bool pressed = false;
+    if (!toBinding(message, binding, pressed)) return false;
+
+    const double now = juce::Time::getMillisecondCounterHiRes();
+
+    core::PerformanceAction action = core::PerformanceAction::None;
+    bool consumed = false;
+    {
+        // Try, never block. The message thread holds this only while editing mappings,
+        // and a dropped press during setup is better than a stalled device thread.
+        const juce::SpinLock::ScopedTryLockType lock(mapping_lock_);
+        if (!lock.isLocked()) return false;
+
+        // Consume by binding, not by whether an action fired: a note bound to a
+        // footswitch must not reach harmony even when the press was debounced away, and
+        // its matching note-off must be swallowed too or harmony sees an orphan release.
+        consumed = midi_mappings_.isLearning()
+                   || midi_mappings_.actionFor(binding) != core::PerformanceAction::None;
+
+        action = midi_mappings_.handleMessage(binding, pressed, now);
+        displaced_action_.store(midi_mappings_.lastDisplacedAction(),
+                                std::memory_order_relaxed);
+
+        if (action != core::PerformanceAction::None
+            && action_queue_size_ < kActionQueueCapacity) {
+            action_queue_[static_cast<std::size_t>(action_queue_size_++)] = action;
+        }
+    }
+
+    if (action != core::PerformanceAction::None) {
+        const auto previous = fired_.load(std::memory_order_relaxed);
+        const std::uint32_t next_seq = (previous >> 8) + 1;
+        fired_.store((next_seq << 8) | static_cast<std::uint32_t>(action),
+                     std::memory_order_relaxed);
+    }
+
+    // PANIC latches here rather than waiting to be drained. The fade is an atomic store
+    // that gates audio we already hold, so it is safe from this thread and works with the
+    // message thread busy or the inference thread wedged — which is the entire guarantee.
+    // The queued copy still runs, doing the parts that must not happen here: muting the
+    // backend, releasing held notes, and writing the log line.
+    if (action == core::PerformanceAction::Panic) output_stage_.panic();
+
+    return consumed;
+}
+
 void GhostBandAudioEngine::handleIncomingMidiMessage(juce::MidiInput*,
                                                      const juce::MidiMessage& message) {
-    // MIDI thread. Atomic stores only — no allocation, no logging, no locks. A device
-    // sending a dense controller stream must not be able to stall anything.
+    // MIDI thread. Atomic stores, one try-lock over a fixed-size buffer — no allocation,
+    // no logging, no blocking. A device sending a dense controller stream must not be
+    // able to stall anything.
+    if (routePerformanceAction(message)) return;
+
     if (message.isNoteOn()) {
         harmony_.noteOn(message.getNoteNumber(), message.getVelocity());
     } else if (message.isNoteOff()) {
@@ -32,6 +109,128 @@ void GhostBandAudioEngine::handleIncomingMidiMessage(juce::MidiInput*,
     } else if (message.isAllNotesOff() || message.isAllSoundOff()) {
         harmony_.allNotesOff();
     }
+}
+
+core::MidiMappingSet GhostBandAudioEngine::midiMappings() const {
+    const juce::SpinLock::ScopedLockType lock(mapping_lock_);
+    return midi_mappings_;
+}
+
+void GhostBandAudioEngine::setMidiMappings(const core::MidiMappingSet& mappings) {
+    {
+        const juce::SpinLock::ScopedLockType lock(mapping_lock_);
+        midi_mappings_ = mappings;
+    }
+    Logger::instance().info(LogCategory::Midi, "foot controller mappings changed");
+    saveMidiMappings();
+}
+
+juce::File GhostBandAudioEngine::midiMappingFile() {
+    return juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory)
+        .getChildFile("GhostBand")
+        .getChildFile("midi-mappings.txt");
+}
+
+void GhostBandAudioEngine::saveMidiMappings() {
+    const auto file = midiMappingFile();
+    file.getParentDirectory().createDirectory();
+
+    // Written on every change rather than at shutdown: a crash or a force-quit after
+    // soundcheck must not cost the performer their pedal layout.
+    if (!file.replaceWithText(juce::String(midiMappings().serialise()))) {
+        Logger::instance().warn(LogCategory::Midi, "could not save foot controller mappings",
+                                {{"path", file.getFullPathName().toStdString()}});
+    }
+}
+
+void GhostBandAudioEngine::loadMidiMappings() {
+    const auto file = midiMappingFile();
+    if (!file.existsAsFile()) {
+        // First launch. The defaults set in the member initialiser stand.
+        return;
+    }
+
+    // An empty file is a performer who deliberately cleared every mapping, not a missing
+    // one — restoring the defaults over it would silently undo that.
+    const auto set = core::MidiMappingSet::deserialise(file.loadFileAsString().toStdString());
+    {
+        const juce::SpinLock::ScopedLockType lock(mapping_lock_);
+        midi_mappings_ = set;
+    }
+    Logger::instance().info(LogCategory::Midi, "foot controller mappings loaded",
+                            {{"path", file.getFullPathName().toStdString()}});
+}
+
+int GhostBandAudioEngine::mappedActionCount() const {
+    const juce::SpinLock::ScopedLockType lock(mapping_lock_);
+    return midi_mappings_.mappedCount();
+}
+
+void GhostBandAudioEngine::beginMidiLearn(core::PerformanceAction action) {
+    const juce::SpinLock::ScopedLockType lock(mapping_lock_);
+    midi_mappings_.beginLearn(action);
+    displaced_action_.store(core::PerformanceAction::None, std::memory_order_relaxed);
+}
+
+void GhostBandAudioEngine::cancelMidiLearn() {
+    const juce::SpinLock::ScopedLockType lock(mapping_lock_);
+    midi_mappings_.cancelLearn();
+}
+
+bool GhostBandAudioEngine::isMidiLearning() const {
+    const juce::SpinLock::ScopedLockType lock(mapping_lock_);
+    return midi_mappings_.isLearning();
+}
+
+core::PerformanceAction GhostBandAudioEngine::midiLearningAction() const {
+    const juce::SpinLock::ScopedLockType lock(mapping_lock_);
+    return midi_mappings_.learningAction();
+}
+
+core::PerformanceAction GhostBandAudioEngine::takeDisplacedAction() {
+    return displaced_action_.exchange(core::PerformanceAction::None,
+                                      std::memory_order_relaxed);
+}
+
+GhostBandAudioEngine::FiredAction GhostBandAudioEngine::lastFiredAction() const {
+    const auto packed = fired_.load(std::memory_order_relaxed);
+    return {static_cast<core::PerformanceAction>(packed & 0xffu), packed >> 8};
+}
+
+void GhostBandAudioEngine::drainPerformanceActions() {
+    // Copy out under the lock, act outside it: performAction reaches the backend and the
+    // logger, neither of which belongs inside a spin lock a MIDI thread is trying.
+    std::array<core::PerformanceAction, kActionQueueCapacity> pending{};
+    int count = 0;
+    {
+        const juce::SpinLock::ScopedLockType lock(mapping_lock_);
+        count = action_queue_size_;
+        pending = action_queue_;
+        action_queue_size_ = 0;
+    }
+    for (int i = 0; i < count; ++i) performAction(pending[static_cast<std::size_t>(i)]);
+}
+
+void GhostBandAudioEngine::performAction(core::PerformanceAction action) {
+    using core::PerformanceAction;
+    switch (action) {
+        case PerformanceAction::NextSection:     nextSection(); break;
+        case PerformanceAction::PreviousSection: previousSection(); break;
+        case PerformanceAction::RepeatSection:   repeatSection(); break;
+        case PerformanceAction::ToggleAiBand:    setAiBandOn(!ai_band_on_); break;
+        case PerformanceAction::IntensityUp:
+            setAiIntensity(intensity_.intensity() + kIntensityPedalStep);
+            break;
+        case PerformanceAction::IntensityDown:
+            setAiIntensity(intensity_.intensity() - kIntensityPedalStep);
+            break;
+        // Already latched on the MIDI thread. This pass is idempotent and adds the work
+        // that does not belong there: muting the backend, releasing notes, logging.
+        case PerformanceAction::Panic:           panic(); return;
+        case PerformanceAction::None:            return;
+    }
+    Logger::instance().info(LogCategory::Midi, "foot control action",
+                            {{"action", core::toString(action)}});
 }
 
 void GhostBandAudioEngine::refreshMidiInputs() {
@@ -107,6 +306,10 @@ void GhostBandAudioEngine::timerCallback() {
     const double delta = last_tick_ms_ > 0.0 ? now - last_tick_ms_ : 0.0;
     last_tick_ms_ = now;
     performance_.tick(delta);
+
+    // Footswitch presses land here rather than on the MIDI thread, where a section change
+    // would mean touching the backend and the song model from a device callback.
+    drainPerformanceActions();
 }
 
 GhostBandAudioEngine::GhostBandAudioEngine() {
@@ -116,6 +319,7 @@ GhostBandAudioEngine::GhostBandAudioEngine() {
     harmony_.setBackend(backend_.get());
     load_pool_ = std::make_unique<juce::ThreadPool>(1);
     performance_.setBackend(backend_.get());
+    loadMidiMappings();
     // 50 Hz: transitions are 250-2000 ms and blend weights only affect the next 40 ms
     // model frame, so anything faster would be false precision.
     startTimerHz(50);

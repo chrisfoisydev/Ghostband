@@ -2,7 +2,7 @@
 
 Status legend: ✅ done · 🟡 in progress · ⚠️ written but unverified · ❌ not started · 🚫 blocked
 
-Last updated: 2026-08-08
+Last updated: 2026-08-11
 
 ---
 
@@ -142,7 +142,7 @@ cmake --build build -j && ctest --test-dir build --output-on-failure
 | 2.3 | Prompt-slot allocation across sections (`KNOWN_ISSUES` §4) | ✅ core done, **tested** (`PromptSlotAllocator`) — 4 section slots + 2 reserved for intensity |
 | 2.4 | Wire sections to the engine: prompt blend + intensity per section | ✅ core done, **tested** (`PerformanceEngine`) — sections take all 6 slots; intensity keeps parameter terms only |
 | 2.5 | Performance Mode UI (huge section name, next preview, minimal chrome) | ✅ **works on hardware** — section changes sound musical, driven by arrow keys alone |
-| 2.6 | MIDI foot controller + MIDI Learn + persistent mappings | ❌ |
+| 2.6 | MIDI foot controller + MIDI Learn + persistent mappings | 🟡 core done, **tested** (`MidiMappingSet`, 33 tests); engine wiring + `FootControlPanel` + mapping file **written, not compiled** — see `KNOWN_ISSUES.md` §15 |
 | 2.7 | Setlists | ❌ |
 | 2.8 | Versioned persistence with migrations | ❌ |
 | 2.9 | Song Map harmony mode | ❌ |

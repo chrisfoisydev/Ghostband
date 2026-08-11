@@ -11,12 +11,16 @@
 #include "core/ControlLatency.h"
 #include "core/IntensityMacro.h"
 #include "core/MidiHarmonyState.h"
+#include "core/MidiMapping.h"
 #include "core/PerformanceEngine.h"
 #include "core/Song.h"
 
 #include <juce_audio_devices/juce_audio_devices.h>
 #include <juce_audio_utils/juce_audio_utils.h>
 
+#include <array>
+#include <atomic>
+#include <cstdint>
 #include <memory>
 #include <vector>
 
@@ -120,6 +124,56 @@ public:
     bool anyMidiDeviceConnected() const noexcept;
     /// @}
 
+    /// @name Foot control (Phase 2.6)
+    ///
+    /// A footswitch press arrives on JUCE's MIDI thread, which may be one of several
+    /// (one per open device) and must stay bounded. Only PANIC is executed there — it is
+    /// an atomic latch by construction, and queueing the one control that must always
+    /// work behind a message thread that might be busy would defeat its purpose. Every
+    /// other action is queued and drained by the 50 Hz timer, adding at most 20 ms to a
+    /// change that already carries ~128 ms of transport latency.
+    /// @{
+    /// Snapshot of the current mappings. Message thread — this copies, so do not call it
+    /// from a poll; use `mappedActionCount()` for status readouts.
+    core::MidiMappingSet midiMappings() const;
+    void setMidiMappings(const core::MidiMappingSet& mappings);
+
+    /// How many actions are bound. Locks briefly without copying, so it is cheap enough
+    /// for the 10 Hz diagnostics refresh.
+    int mappedActionCount() const;
+
+    /// Arm MIDI Learn for `action`. The next press on any open input binds it and is
+    /// swallowed, so mapping PANIC does not also silence the band.
+    void beginMidiLearn(core::PerformanceAction action);
+    void cancelMidiLearn();
+    bool isMidiLearning() const;
+    core::PerformanceAction midiLearningAction() const;
+
+    /// The binding most recently taken from another action by a learn, or None. Cleared
+    /// by reading it, so the UI reports the theft exactly once.
+    core::PerformanceAction takeDisplacedAction();
+
+    /// The last action a pedal fired, with a counter that increments on every fire.
+    ///
+    /// The setup screen uses this to light a row when its pedal is pressed — the answer to
+    /// "is my pedal reaching the app", which otherwise can only be tested by triggering
+    /// the action for real. The two fields live in one atomic word so a poll can never
+    /// pair a fresh count with a stale action and flash the wrong row.
+    struct FiredAction {
+        core::PerformanceAction action = core::PerformanceAction::None;
+        std::uint32_t sequence = 0;
+    };
+    FiredAction lastFiredAction() const;
+
+    /// Plain-text mappings under the user's application data directory. Saved on every
+    /// change, loaded at startup. Deliberately not versioned yet — task 2.8 owns schema
+    /// migration for songs and setlists, and this file will move under it rather than
+    /// growing a second, parallel versioning scheme now.
+    static juce::File midiMappingFile();
+    void saveMidiMappings();
+    void loadMidiMappings();
+    /// @}
+
     core::EngineState engineState() const noexcept { return state_.state(); }
     juce::String engineError() const { return juce::String(state_.errorReason()); }
     core::PromptStatus promptStatus() const;
@@ -165,6 +219,16 @@ private:
     void handleIncomingMidiMessage(juce::MidiInput* source,
                                    const juce::MidiMessage& message) override;
 
+    /// Resolve a message against the mappings. Returns true if it was consumed as a
+    /// performance action, in which case it must not also reach harmony — a footswitch
+    /// bound to a note should not add that note to the chord.
+    /// MIDI thread.
+    bool routePerformanceAction(const juce::MidiMessage& message);
+
+    /// Drain the queue on the message thread. Called from timerCallback.
+    void drainPerformanceActions();
+    void performAction(core::PerformanceAction action);
+
     juce::AudioDeviceManager device_manager_;
     /// shared_ptr because backend ownership has to be handed across a std::function
     /// during an async load, and Mrt2Backend is neither copyable nor movable.
@@ -198,6 +262,29 @@ private:
     juce::String base_prompt_;
     int buffer_frames_ = 2;
     juce::StringArray open_midi_inputs_;
+
+    /// Guards `midi_mappings_` and `action_queue_`. A SpinLock rather than a mutex because
+    /// every critical section is a handful of instructions over a fixed-size container
+    /// with no allocation. The MIDI thread only ever *tries* it: if the settings screen
+    /// holds it, that press is dropped rather than blocking a device thread.
+    mutable juce::SpinLock mapping_lock_;
+    core::MidiMappingSet midi_mappings_{core::MidiMappingSet::makeDefault()};
+
+    /// Fixed capacity, written under `mapping_lock_`. 16 is far more than the handful of
+    /// presses that can land inside one 20 ms timer period; overflow drops the newest,
+    /// which is the right end to drop — a queue backed up that far is already wrong.
+    static constexpr int kActionQueueCapacity = 16;
+    std::array<core::PerformanceAction, kActionQueueCapacity> action_queue_{};
+    int action_queue_size_ = 0;
+
+    /// Low 8 bits: the action. Upper 24: a fire counter. One word so the pair is always
+    /// consistent — see FiredAction.
+    std::atomic<std::uint32_t> fired_{0};
+    std::atomic<core::PerformanceAction> displaced_action_{core::PerformanceAction::None};
+
+    /// Intensity step per pedal press. Coarse on purpose: a foot is not a knob, and five
+    /// presses should cross the useful range rather than nudge it.
+    static constexpr float kIntensityPedalStep = 0.1f;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(GhostBandAudioEngine)
 };

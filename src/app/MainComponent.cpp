@@ -42,6 +42,15 @@ juce::String promptStatusText(core::PromptStatus s) {
 } // namespace
 
 namespace {
+/// "3 of 7 mapped" rather than a bare yes/no: at soundcheck the useful question is how
+/// much of the pedal is live, not whether any of it is.
+juce::String mappingSummary(int mapped, int total) {
+    if (mapped == 0) return "nothing mapped";
+    return juce::String(mapped) + " of " + juce::String(total) + " actions mapped";
+}
+} // namespace
+
+namespace {
 constexpr int kDiagLineHeight = 17;
 constexpr float kDiagFontHeight = 13.0f;
 } // namespace
@@ -81,6 +90,9 @@ MainComponent::MainComponent() {
 
     addAndMakeVisible(performance_button_);
     performance_button_.onClick = [this] { setPerformanceMode(true); };
+
+    addAndMakeVisible(foot_control_button_);
+    foot_control_button_.onClick = [this] { setFootControlMode(true); };
 
     addAndMakeVisible(start_button_);
     start_button_.onClick = [this] { engine_.startGeneration(); refreshStatus(); };
@@ -187,6 +199,10 @@ MainComponent::MainComponent() {
     performance_view_->onExitRequested = [this] { setPerformanceMode(false); };
     addChildComponent(*performance_view_);   // built now, shown only on demand
 
+    foot_control_panel_ = std::make_unique<FootControlPanel>(engine_);
+    foot_control_panel_->onCloseRequested = [this] { setFootControlMode(false); };
+    addChildComponent(*foot_control_panel_);
+
     device_selector_ = std::make_unique<juce::AudioDeviceSelectorComponent>(
         engine_.deviceManager(),
         /*minInput*/ 0, /*maxInput*/ 0,   // Phase 0 has no input: GhostBand is additive only
@@ -282,17 +298,32 @@ void MainComponent::applyPrompt() {
 
 void MainComponent::setPerformanceMode(bool on) {
     performance_mode_ = on;
+    // Leaving mapping armed behind a screen change would let the next pedal press rebind
+    // something nobody is looking at.
+    if (on) foot_control_mode_ = false;
+    applyScreenVisibility();
+    if (on && performance_view_ != nullptr) performance_view_->grabKeyboardFocus();
+}
 
-    // Everything except the stage view is hidden rather than destroyed, so returning to
-    // setup is instant and nothing is reallocated mid-performance.
+void MainComponent::setFootControlMode(bool on) {
+    foot_control_mode_ = on;
+    if (!on) engine_.cancelMidiLearn();
+    applyScreenVisibility();
+}
+
+void MainComponent::applyScreenVisibility() {
+    // Exactly one screen is visible at a time. Everything is hidden rather than destroyed,
+    // so switching is instant and nothing is reallocated mid-performance.
+    const bool setup_visible = !performance_mode_ && !foot_control_mode_;
+
     for (int i = 0; i < getNumChildComponents(); ++i) {
         auto* child = getChildComponent(i);
-        if (child != performance_view_.get()) child->setVisible(!on);
+        if (child == performance_view_.get() || child == foot_control_panel_.get()) continue;
+        child->setVisible(setup_visible);
     }
-    if (performance_view_ != nullptr) {
-        performance_view_->setVisible(on);
-        if (on) performance_view_->grabKeyboardFocus();
-    }
+    if (performance_view_ != nullptr) performance_view_->setVisible(performance_mode_);
+    if (foot_control_panel_ != nullptr) foot_control_panel_->setVisible(foot_control_mode_);
+
     resized();
     repaint();
 }
@@ -417,6 +448,14 @@ void MainComponent::refreshStatus() {
       << "\n"
       << "Sounding notes        " << juce::String(engine_.harmony().soundingCount())
                                   << "   " << juce::String(chord_notes) << "\n"
+      << "\n"
+      << "Foot control          "
+                                  << mappingSummary(engine_.mappedActionCount(),
+                                                    static_cast<int>(
+                                                        core::allPerformanceActions().size()))
+                                  << "\n"
+      << "  last action fired   " << juce::String(core::toDisplayString(
+                                       engine_.lastFiredAction().action)) << "\n"
       << "Memory                " << juce::String(snap.memoryUsageGb, 2) << " GB\n";
 
     // The Viewport owns the scroll offset, so rewriting the content at 10 Hz no longer
@@ -467,7 +506,8 @@ void MainComponent::paint(juce::Graphics& g) {
 
 void MainComponent::resized() {
     if (performance_view_ != nullptr) performance_view_->setBounds(getLocalBounds());
-    if (performance_mode_) return;   // the stage screen owns the whole window
+    if (foot_control_panel_ != nullptr) foot_control_panel_->setBounds(getLocalBounds());
+    if (performance_mode_ || foot_control_mode_) return;   // an overlay owns the window
 
     auto area = getLocalBounds().reduced(24);
     area.removeFromTop(60); // title block
@@ -480,14 +520,19 @@ void MainComponent::resized() {
     area.removeFromTop(8);
 
     auto buttons = area.removeFromTop(40);
+    panic_button_.setBounds(buttons.removeFromRight(180).reduced(2));
+    recover_button_.setBounds(buttons.removeFromRight(130).reduced(2));
     load_button_.setBounds(buttons.removeFromLeft(130).reduced(2));
     load_song_button_.setBounds(buttons.removeFromLeft(150).reduced(2));
     performance_button_.setBounds(buttons.removeFromLeft(170).reduced(2));
-    start_button_.setBounds(buttons.removeFromLeft(100).reduced(2));
-    stop_button_.setBounds(buttons.removeFromLeft(100).reduced(2));
-    ai_band_toggle_.setBounds(buttons.removeFromLeft(120).reduced(2));
-    panic_button_.setBounds(buttons.removeFromRight(180).reduced(2));
-    recover_button_.setBounds(buttons.removeFromRight(130).reduced(2));
+    start_button_.setBounds(buttons.removeFromLeft(90).reduced(2));
+    stop_button_.setBounds(buttons.removeFromLeft(90).reduced(2));
+    ai_band_toggle_.setBounds(buttons.removeFromLeft(110).reduced(2));
+
+    // Second row: setup-time controls that never need reaching for mid-song.
+    area.removeFromTop(4);
+    auto buttons2 = area.removeFromTop(34);
+    foot_control_button_.setBounds(buttons2.removeFromLeft(160).reduced(2));
 
     area.removeFromTop(12);
     auto prompt_row = area.removeFromTop(60);

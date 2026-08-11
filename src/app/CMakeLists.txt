@@ -49,6 +49,7 @@ target_sources(GhostBand PRIVATE
     Main.cpp
     MainComponent.cpp
     PerformanceView.cpp
+    FootControlPanel.cpp
     GhostBandAudioEngine.cpp
     ../backend/Mrt2Backend.cpp
 )
