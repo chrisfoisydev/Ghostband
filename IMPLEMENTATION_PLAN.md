@@ -141,7 +141,7 @@ cmake --build build -j && ctest --test-dir build --output-on-failure
 | 2.2 | `SectionController` — prev/next/jump/repeat + transition ramp | ✅ core done, **tested** |
 | 2.3 | Prompt-slot allocation across sections (`KNOWN_ISSUES` §4) | ✅ core done, **tested** (`PromptSlotAllocator`) — 4 section slots + 2 reserved for intensity |
 | 2.4 | Wire sections to the engine: prompt blend + intensity per section | ✅ core done, **tested** (`PerformanceEngine`) — sections take all 6 slots; intensity keeps parameter terms only |
-| 2.5 | Performance Mode UI (huge section name, next preview, minimal chrome) | ⚠️ written, uncompiled — arrows/Escape/R, PREVIOUS/NEXT/PANIC, status lights |
+| 2.5 | Performance Mode UI (huge section name, next preview, minimal chrome) | ✅ **works on hardware** — section changes sound musical, driven by arrow keys alone |
 | 2.6 | MIDI foot controller + MIDI Learn + persistent mappings | ❌ |
 | 2.7 | Setlists | ❌ |
 | 2.8 | Versioned persistence with migrations | ❌ |
