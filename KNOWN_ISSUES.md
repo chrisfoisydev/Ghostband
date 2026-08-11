@@ -87,11 +87,29 @@ all pre-encoded, so the pre-encoding strategy that makes section changes instant
 (`ARCHITECTURE.md` §8) needs slot recycling — encoding the next section's prompt during
 the current one.
 
-**Impact:** a rapid jump to a section whose prompt is not resident incurs an async
-MusicCoCa encode. **Mitigation (Phase 2):** recycle on section change with one section of
-lookahead, and prefer the previous/next section in the arrangement. Long-tail risk: an
-unplanned jump backwards through a >6-prompt song. Needs a measured encode time before we
-can size the risk — unknown until Phase 0 closes.
+**Now implemented** (`PromptSlotAllocator`, 2026-08-10) and unit-tested.
+
+**The tension this exposed.** `IntensityMacro` also wants slots — it crossfades sparse /
+base / full wordings of the current prompt, which is the strongest arrangement lever MRT2
+offers. Sections and intensity compete for the same six slots and there is no arrangement
+that gives both everything.
+
+Resolved by **reserving** slots: 2 for intensity's density variants, leaving **4 for
+section prompts**. Four distinct prompts covers Verse / Chorus / Bridge / Outro, which is
+most songs. The reservation is a constructor argument, so the trade is inspectable and
+adjustable rather than buried.
+
+**Capacity is counted in distinct prompts, not sections.** Ten sections sharing two
+wordings cost two slots, so a long song with a consistent arrangement is fully resident.
+
+**Overflow is reported, not rejected.** `isFullyResident()` says whether a song can promise
+stall-free changes; the editor can warn the performer before the gig rather than after.
+When a non-resident section is reached, eviction never touches the playing section's slot
+and otherwise drops the prompt whose *nearest* user is furthest away in the arrangement.
+
+**Still unmeasured:** how long a MusicCoCa encode actually takes, and therefore how bad an
+overflow stall sounds. Needs measuring on hardware before any song is authored past four
+distinct prompts.
 
 ---
 
