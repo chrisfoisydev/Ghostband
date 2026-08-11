@@ -77,6 +77,7 @@ add_library(ghostband_core STATIC
     src/core/Song.cpp
     src/core/SectionController.cpp
     src/core/PromptSlotAllocator.cpp
+    src/core/PerformanceEngine.cpp
 )
 add_library(ghostband::core ALIAS ghostband_core)
 

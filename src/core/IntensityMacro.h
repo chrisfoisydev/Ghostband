@@ -88,9 +88,17 @@ public:
     /// which depends on the previous state by design.
     IntensityParams compute() const noexcept;
 
-    /// Push the current intensity to a backend. Does **not** set prompts — those are
-    /// encoded once by `promptVariants()`; this only moves blend weights.
+    /// Push everything, including the prompt blend. For free play, where intensity owns
+    /// the prompt slots.
     void applyTo(IGenerationBackend& backend) const;
+
+    /// Push only the sampling parameters, leaving blend weights alone.
+    ///
+    /// Used when a song is loaded: sections then own every prompt slot, so intensity must
+    /// not overwrite the section crossfade. It keeps `drumless`, `cfg_drums`,
+    /// `cfg_musiccoca` and `temperature` — a genuinely weaker lever than the prompt blend,
+    /// which is the acknowledged cost of guaranteeing instant section changes.
+    void applyParametersTo(IGenerationBackend& backend) const;
 
     /// The three prompt strings to encode up front, in slot order [sparse, base, full].
     /// Call once per prompt change, never per intensity change.

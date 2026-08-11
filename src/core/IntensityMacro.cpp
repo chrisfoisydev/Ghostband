@@ -47,19 +47,23 @@ IntensityParams IntensityMacro::compute() const noexcept {
     return p;
 }
 
-void IntensityMacro::applyTo(IGenerationBackend& backend) const {
+void IntensityMacro::applyParametersTo(IGenerationBackend& backend) const {
     const auto p = compute();
-
     backend.setDrumless(p.drumless);
     backend.setCfgDrums(p.cfgDrums);
     backend.setCfgMusicCoca(p.cfgMusicCoca);
     backend.setTemperature(p.temperature);
-    backend.setBlendWeights(p.promptWeights.data(),
-                            static_cast<int>(p.promptWeights.size()));
 
     // Deliberately absent: setCfgNotes and any gain change. Harmony must follow the
     // performer just as tightly at intensity 0.1 as at 0.9, and loudness is a separate
     // control the brief insists must not be conflated with this one.
+}
+
+void IntensityMacro::applyTo(IGenerationBackend& backend) const {
+    applyParametersTo(backend);
+    const auto p = compute();
+    backend.setBlendWeights(p.promptWeights.data(),
+                            static_cast<int>(p.promptWeights.size()));
 }
 
 std::vector<std::string> IntensityMacro::promptVariants(const std::string& basePrompt) const {
