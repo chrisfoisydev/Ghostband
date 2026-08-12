@@ -104,10 +104,12 @@ private:
     juce::Label intensity_label_;
 
     /// On-screen keyboard, playable with the mouse or the computer keys (A/W/S/E/D...).
-    /// It is a genuine MIDI source, not a simulation: notes go through the same
-    /// MidiHarmonyState a hardware controller uses, so testing here exercises the real
-    /// path. Present because the harmony feature is otherwise untestable without buying a
-    /// controller.
+    /// It is a genuine MIDI source, not a simulation: it builds real MIDI messages and
+    /// hands them to GhostBandAudioEngine::handleMidiMessage, the same entry point a
+    /// hardware controller uses. So it exercises foot-control matching and MIDI Learn as
+    /// well as harmony. Present because both features are otherwise untestable without
+    /// buying a controller — which means anything new on that path must go through
+    /// handleMidiMessage, not around it.
     juce::MidiKeyboardState keyboard_state_;
     std::unique_ptr<juce::MidiKeyboardComponent> keyboard_;
     juce::Label harmony_label_;

@@ -233,12 +233,20 @@ MainComponent::~MainComponent() {
     stopTimer();
 }
 
-void MainComponent::handleNoteOn(juce::MidiKeyboardState*, int, int note, float velocity) {
-    engine_.harmony().noteOn(note, juce::jlimit(1, 127, juce::roundToInt(velocity * 127.0f)));
+// The on-screen keyboard is a MIDI source, not a shortcut into harmony. Building a real
+// message and handing it to the engine means it takes the identical path a hardware
+// controller does, foot-control matching included — which is the only way MIDI Learn can
+// be exercised on a machine with no pedal attached.
+void MainComponent::handleNoteOn(juce::MidiKeyboardState*, int channel, int note,
+                                 float velocity) {
+    engine_.handleMidiMessage(juce::MidiMessage::noteOn(
+        juce::jlimit(1, 16, channel), note,
+        static_cast<juce::uint8>(juce::jlimit(1, 127, juce::roundToInt(velocity * 127.0f)))));
 }
 
-void MainComponent::handleNoteOff(juce::MidiKeyboardState*, int, int note, float) {
-    engine_.harmony().noteOff(note);
+void MainComponent::handleNoteOff(juce::MidiKeyboardState*, int channel, int note, float) {
+    engine_.handleMidiMessage(
+        juce::MidiMessage::noteOff(juce::jlimit(1, 16, channel), note));
 }
 
 juce::File MainComponent::defaultResourceDir() {

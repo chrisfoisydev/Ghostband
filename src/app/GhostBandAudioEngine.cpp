@@ -93,9 +93,13 @@ bool GhostBandAudioEngine::routePerformanceAction(const juce::MidiMessage& messa
 
 void GhostBandAudioEngine::handleIncomingMidiMessage(juce::MidiInput*,
                                                      const juce::MidiMessage& message) {
-    // MIDI thread. Atomic stores, one try-lock over a fixed-size buffer — no allocation,
-    // no logging, no blocking. A device sending a dense controller stream must not be
-    // able to stall anything.
+    handleMidiMessage(message);
+}
+
+void GhostBandAudioEngine::handleMidiMessage(const juce::MidiMessage& message) {
+    // May run on a MIDI thread. Atomic stores, one try-lock over a fixed-size buffer — no
+    // allocation, no logging, no blocking. A device sending a dense controller stream must
+    // not be able to stall anything.
     if (routePerformanceAction(message)) return;
 
     if (message.isNoteOn()) {

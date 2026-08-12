@@ -118,6 +118,18 @@ public:
     core::MidiHarmonyState& harmony() noexcept { return harmony_; }
     const core::MidiHarmonyState& harmony() const noexcept { return harmony_; }
 
+    /// Feed one MIDI message through the full control path: foot-control matching first,
+    /// then harmony with whatever was not consumed.
+    ///
+    /// Public so the on-screen keyboard can use it. That keyboard exists precisely so the
+    /// control path is testable without buying hardware, and it only earns that if it is
+    /// the *same* path — a parallel one would drift, and did: for one commit the on-screen
+    /// keyboard reached harmony directly and could not exercise foot control at all.
+    ///
+    /// Callable from the MIDI thread or the message thread. Both are bounded here; see
+    /// ARCHITECTURE.md §3.2.
+    void handleMidiMessage(const juce::MidiMessage& message);
+
     /// Open every available MIDI input. Called at startup and on hot-plug.
     void refreshMidiInputs();
     juce::StringArray midiInputNames() const;

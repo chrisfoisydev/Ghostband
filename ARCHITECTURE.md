@@ -120,6 +120,12 @@ transport delay a section change already carries. PANIC pays none of it.
 release with no press. That is why the defaults are CCs rather than notes; see
 `KNOWN_ISSUES.md` §14.
 
+**One entry point.** Hardware devices and the on-screen keyboard both call
+`GhostBandAudioEngine::handleMidiMessage`, which matches foot control first and passes the
+remainder to harmony. The on-screen keyboard exists so the control path is testable
+without buying hardware, and that only holds while it is genuinely the same path — so new
+control features are added *to* this function, never beside it.
+
 ---
 
 ## 4. The audio path, precisely

@@ -339,6 +339,20 @@ corruption. What those tests cannot cover is everything below `core`:
   hardware, because a race here shows up as a missed or doubled section change under load
   — exactly the failure mode a performer cannot recover from on stage.
 
-**To close it:** build on the Mac, open FOOT CONTROL, learn each switch, confirm each row
-lights on press, then run a song end to end using only the pedal. Criterion 6 in
-`STAGE_READINESS.md` stays ❌ until that has happened.
+**Most of it is testable without a pedal.** The on-screen keyboard sends real MIDI through
+`GhostBandAudioEngine::handleMidiMessage`, the same entry point a hardware device uses, so
+arming LEARN and pressing a key exercises the whole chain: match, consume, queue, drain,
+act, persist. What that cannot reach is the CC decode branch — a musical keyboard sends
+notes, not control changes — and the multi-device threading, since the on-screen keyboard
+runs on the message thread rather than a device thread.
+
+For one commit the on-screen keyboard bypassed this path entirely and reached
+`MidiHarmonyState` directly, which made foot control untestable without hardware. Worth
+recording: the header comment claiming it was "a genuine MIDI source, not a simulation"
+had been true when written and quietly stopped being true when foot control landed beside
+it. A shared path only stays shared if new features are added *to* it.
+
+**To close it:** build on the Mac, open FOOT CONTROL, learn each action against the
+on-screen keyboard, confirm each row lights on press. Then repeat with a real pedal on CC
+and run a song end to end using only the pedal. Criterion 6 in `STAGE_READINESS.md` stays
+⚠️ until the pedal half has happened.
