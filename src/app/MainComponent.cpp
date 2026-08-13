@@ -48,6 +48,21 @@ juce::String mappingSummary(int mapped, int total) {
     if (mapped == 0) return "nothing mapped";
     return juce::String(mapped) + " of " + juce::String(total) + " actions mapped";
 }
+
+/// Position in the set, and any gaps in it. A missing song is stated here rather than only
+/// at load time, because the diagnostics panel is what gets read at soundcheck.
+juce::String setlistSummary(const GhostBandAudioEngine& engine) {
+    if (!engine.hasSetlist()) return "none";
+
+    const auto& s = engine.setlist();
+    juce::String text = juce::String(s.setlist().name) + "   song "
+                      + juce::String(s.currentIndex() + 1) + " of "
+                      + juce::String(s.size());
+    if (s.hasMissingSongs()) {
+        text += "   " + juce::String(s.missingCount()) + " MISSING";
+    }
+    return text;
+}
 } // namespace
 
 namespace {
@@ -93,6 +108,18 @@ MainComponent::MainComponent() {
 
     addAndMakeVisible(foot_control_button_);
     foot_control_button_.onClick = [this] { setFootControlMode(true); };
+
+    addAndMakeVisible(save_song_button_);
+    save_song_button_.onClick = [this] { saveCurrentSong(); };
+
+    addAndMakeVisible(open_song_button_);
+    open_song_button_.onClick = [this] { openSongFile(); };
+
+    addAndMakeVisible(open_setlist_button_);
+    open_setlist_button_.onClick = [this] { openSetlistFile(); };
+
+    addAndMakeVisible(file_status_label_);
+    file_status_label_.setColour(juce::Label::textColourId, kDim);
 
     addAndMakeVisible(start_button_);
     start_button_.onClick = [this] { engine_.startGeneration(); refreshStatus(); };
@@ -304,6 +331,93 @@ void MainComponent::applyPrompt() {
     refreshStatus();
 }
 
+void MainComponent::showFileMessage(const juce::String& message, bool isError) {
+    file_status_is_error_ = isError;
+    file_status_label_.setColour(juce::Label::textColourId, isError ? kFault : kOk);
+    file_status_label_.setText(message, juce::dontSendNotification);
+}
+
+void MainComponent::saveCurrentSong() {
+    if (!engine_.hasSong()) {
+        showFileMessage("No song loaded - nothing to save.", true);
+        return;
+    }
+
+    juce::File written;
+    const auto error = engine_.saveSongAs(*engine_.performance().song(), written);
+    if (error.isNotEmpty()) {
+        showFileMessage(error, true);
+        return;
+    }
+    // Naming the file, not just saying "Saved": the performer needs to know where it went
+    // the first time, and afterwards it confirms which of several songs was written.
+    showFileMessage("Saved " + written.getFileName() + " to "
+                        + written.getParentDirectory().getFullPathName(),
+                    false);
+}
+
+void MainComponent::openSongFile() {
+    const auto dir = GhostBandAudioEngine::songsDirectory();
+    dir.createDirectory();   // so the chooser opens somewhere real on a fresh install
+
+    file_chooser_ = std::make_unique<juce::FileChooser>(
+        "Open a GhostBand song", dir, juce::String("*") + core::kSongFileExtension);
+
+    file_chooser_->launchAsync(
+        juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles,
+        [this](const juce::FileChooser& chooser) {
+            const auto file = chooser.getResult();
+            if (file == juce::File()) return;      // cancelled
+
+            const auto error = engine_.loadSongFile(file);
+            showFileMessage(error.isNotEmpty() ? error
+                                               : "Opened " + file.getFileName(),
+                            error.isNotEmpty());
+            refreshStatus();
+        });
+}
+
+void MainComponent::openSetlistFile() {
+    const auto dir = GhostBandAudioEngine::setlistsDirectory();
+    dir.createDirectory();
+
+    file_chooser_ = std::make_unique<juce::FileChooser>(
+        "Open a GhostBand setlist", dir, juce::String("*") + core::kSetlistFileExtension);
+
+    file_chooser_->launchAsync(
+        juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles,
+        [this](const juce::FileChooser& chooser) {
+            const auto file = chooser.getResult();
+            if (file == juce::File()) return;
+
+            const auto error = engine_.loadSetlistFile(file);
+            if (error.isNotEmpty()) {
+                showFileMessage(error, true);
+                refreshStatus();
+                return;
+            }
+
+            // A partly-loaded set is usable, but the performer has to be told at load
+            // time. Finding out between songs is too late.
+            const auto missing = engine_.missingSongs();
+            if (!missing.empty()) {
+                juce::String names;
+                for (const auto& title : missing) {
+                    if (names.isNotEmpty()) names += ", ";
+                    names += juce::String(title);
+                }
+                showFileMessage(juce::String(static_cast<int>(missing.size()))
+                                    + " song(s) MISSING: " + names,
+                                true);
+            } else {
+                showFileMessage("Opened " + file.getFileName() + " - "
+                                    + juce::String(engine_.setlist().size()) + " songs",
+                                false);
+            }
+            refreshStatus();
+        });
+}
+
 void MainComponent::setPerformanceMode(bool on) {
     performance_mode_ = on;
     // Leaving mapping armed behind a screen change would let the next pedal press rebind
@@ -434,6 +548,7 @@ void MainComponent::refreshStatus() {
       << "MIDI                  " << (engine_.anyMidiDeviceConnected()
                                         ? engine_.midiInputNames().joinIntoString(", ")
                                         : juce::String("no device (use the on-screen keyboard)")) << "\n"
+      << "Setlist               " << setlistSummary(engine_) << "\n"
       << "Song                  " << (engine_.hasSong()
                                         ? juce::String(engine_.performance().song()->title)
                                         : juce::String("none")) << "\n"
@@ -541,6 +656,12 @@ void MainComponent::resized() {
     area.removeFromTop(4);
     auto buttons2 = area.removeFromTop(34);
     foot_control_button_.setBounds(buttons2.removeFromLeft(160).reduced(2));
+    open_song_button_.setBounds(buttons2.removeFromLeft(130).reduced(2));
+    open_setlist_button_.setBounds(buttons2.removeFromLeft(140).reduced(2));
+    save_song_button_.setBounds(buttons2.removeFromLeft(130).reduced(2));
+
+    area.removeFromTop(2);
+    file_status_label_.setBounds(area.removeFromTop(22));
 
     area.removeFromTop(12);
     auto prompt_row = area.removeFromTop(60);

@@ -305,3 +305,50 @@ On macOS, add `-DGHOSTBAND_BUILD_APP=ON` and point `-DMAGENTA_RT_DIR=` at a chec
 - **No automatic model switching.** The brief forbids it and it would stall generation.
 - **No `set_audio_prompt(path)`.** Upstream marks it as returning a fake embedding.
 - **No re-implementation of MRT2's inference thread, gain smoothing, or recording.**
+
+---
+
+## 12. Persistence
+
+Two file kinds, both line-oriented text under `~/Documents/GhostBand`:
+
+| | Extension | Location | Why there |
+|---|---|---|---|
+| Songs | `.ghostsong` | `Documents/GhostBand/Songs` | the performer's own work — visible in Finder, backed up, portable to another machine |
+| Setlists | `.ghostset` | `Documents/GhostBand/Setlists` | same |
+| Foot-controller mappings | `.txt` | Application Support | app state, not content |
+
+**Not JSON.** A parser is the part of a file format most likely to throw, and this one
+runs when a performer opens a song — sometimes at soundcheck. `LoadResult` gives it one
+failure mode: a message, a line number, and a flag distinguishing "saved by a newer
+GhostBand" from corruption, because the fix differs completely. The format is also
+repairable in a text editor, which matters the one time a file is half-written by a crash.
+
+**Versioned from the first release.** The header carries a schema version; a file from a
+newer build is refused rather than half-read; `migrate()` exists with one branch to add per
+future version. Building this later would mean designing migration under time pressure
+against files that already hold a performer's set.
+
+**Numbers are written and read in the C locale.** `std::to_string(0.35f)` emits `0,35`
+under a French system locale and reads back as `0` — a song that silently loses its
+intensities when carried to another laptop.
+
+**Writes are atomic**: temp file, then move into place. `File::replaceWithText` truncates
+first, so a failure part-way through would destroy the previous version.
+
+### 12.1 Setlists reference songs, they do not embed them
+
+Embedding would make a setlist self-contained, which is tempting for stage reliability.
+It also means editing a song leaves the set playing a stale copy with nothing saying so. A
+missing file is loud and fixable; a silently stale arrangement is neither.
+
+Consequences, all deliberate:
+
+- A song that fails to load **keeps its place** in the running order as a gap, so the
+  numbering still matches the paper setlist taped to the monitor.
+- The gap is reachable, and the stage screen says `SONG FILE MISSING` in large type rather
+  than showing an empty screen that looks like a crash.
+- Missing songs are named using the title cached at save time, not the file name.
+- A set that is 11 of 12 songs still loads. Refusing it would hide which 11 are fine.
+- Songs resolve from the setlist's own folder first, then the shared songs directory, so a
+  set carried to another machine in one folder still opens.

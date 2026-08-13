@@ -25,13 +25,13 @@ Legend: ✅ verified by execution · ⚠️ implemented but unverified · ❌ no
 | 10 | No serious memory leak over 60 min | 🟡 | memory now measured; **1.16 GB baseline** with mrt2_small resident. 60-min trend not taken. |
 | 11 | Audio device reconnect handled gracefully | ❌ | Phase 4 |
 | 12 | Model errors do not crash the app | ⚠️ | `EngineState` error path **tested**; real MRT2 errors unobserved |
-| 13 | Songs persist | ❌ | Phase 2 |
-| 14 | Setlists persist | ❌ | Phase 2 |
+| 13 | Songs persist | ⚠️ | format + versioning **tested** (round trip, corrupt input, truncation, locale); save/open **written, never compiled or run against a real file** |
+| 14 | Setlists persist | ⚠️ | same as 13; missing-song handling **tested**, never exercised on disk |
 | 15 | Performance Mode works without a mouse | 🟡 | **driven by arrow keys on hardware**; foot control is now written but unverified (see 6), which is what the criterion ultimately means |
 | 16 | Generated band stays instrumental where practical | ❌ | prompt policy only; unverified |
 | 17 | **No feature claims something that isn't implemented** | ✅ | enforced by `CLAUDE.md` rule 2; this file is the audit |
 
-**Score: 1 / 17 fully verified, 6 partial.** Criterion 17 remains the only one ticked
+**Score: 1 / 17 fully verified, 6 partial, 4 written-but-unverified.** Criterion 17 remains the only one ticked
 outright, and ticking it honestly is what makes the other sixteen trustworthy.
 
 **Phase 0 is closed (2026-08-09).** The full chain is confirmed on an Apple M2 Pro: MRT2

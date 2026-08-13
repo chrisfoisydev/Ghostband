@@ -62,6 +62,25 @@ void PerformanceView::timerCallback() { repaint(); }
 bool PerformanceView::keyPressed(const juce::KeyPress& key) {
     // Every action reachable without the trackpad. Foot control maps onto these same
     // actions, so the pedal path and the key path cannot drift apart.
+    // Song changes take a modifier, and are tested BEFORE the bare arrows. Sections change
+    // many times a song and songs a handful of times a set, so the unmodified arrows
+    // belong to sections — and a mis-hit that jumps to the next song costs far more than
+    // one that jumps a section. Checked first because KeyPress's comparison against a bare
+    // keycode is not obviously modifier-sensitive, and an ordering that depends on that
+    // would fail silently.
+    if (key.getKeyCode() == juce::KeyPress::rightKey
+        && key.getModifiers().isCommandDown()) {
+        engine_.nextSong();
+        repaint();
+        return true;
+    }
+    if (key.getKeyCode() == juce::KeyPress::leftKey
+        && key.getModifiers().isCommandDown()) {
+        engine_.previousSong();
+        repaint();
+        return true;
+    }
+
     if (key == juce::KeyPress::leftKey)  { engine_.previousSection(); repaint(); return true; }
     if (key == juce::KeyPress::rightKey) { engine_.nextSection();     repaint(); return true; }
     if (key == juce::KeyPress::escapeKey) {
@@ -82,17 +101,33 @@ void PerformanceView::drawSectionBlock(juce::Graphics& g, juce::Rectangle<int> a
     const auto* section = perf.sections().current();
 
     // Song title: present but subordinate. The performer knows what song they are in.
+    auto title_row = area.removeFromTop(36);
     g.setColour(kStageDim);
     g.setFont(stageFont(26.0f));
     g.drawText(perf.hasSong() ? juce::String(perf.song()->title) : juce::String("NO SONG"),
-               area.removeFromTop(36), juce::Justification::centredLeft);
+               title_row, juce::Justification::centredLeft);
+
+    // Position in the set, right-aligned so it never crowds the title. Only when a set is
+    // loaded — "song 1 of 1" for a single song would be noise.
+    if (engine_.hasSetlist()) {
+        const auto& set = engine_.setlist();
+        g.drawText(juce::String(set.currentIndex() + 1) + " / " + juce::String(set.size()),
+                   title_row, juce::Justification::centredRight);
+    }
 
     area.removeFromTop(4);
 
     // The one thing that must be readable across a stage.
-    g.setColour(kStageText);
-    g.setFont(stageFont(96.0f));
-    g.drawText(section != nullptr ? juce::String(section->name).toUpperCase()
+    //
+    // A setlist entry whose file is missing has no sections to show. Saying so in the
+    // large type is the honest thing: an empty stage screen looks like a crash, and the
+    // performer needs to know immediately that this slot has nothing behind it.
+    const bool missing_song = engine_.hasSetlist() && engine_.setlist().currentSong() == nullptr;
+
+    g.setColour(missing_song ? kStageFault : kStageText);
+    g.setFont(stageFont(missing_song ? 56.0f : 96.0f));
+    g.drawText(missing_song  ? juce::String("SONG FILE MISSING")
+             : section != nullptr ? juce::String(section->name).toUpperCase()
                                   : juce::String("-"),
                area.removeFromTop(110), juce::Justification::centredLeft);
 
@@ -129,6 +164,18 @@ void PerformanceView::drawSectionBlock(juce::Graphics& g, juce::Rectangle<int> a
     g.drawText(next != nullptr ? juce::String(next->name).toUpperCase()
                                : juce::String("END OF SONG"),
                area.removeFromTop(46), juce::Justification::centredLeft);
+
+    // At the end of a song inside a set, what comes next is a song, not a section. The
+    // one moment a performer most needs to know what is coming is exactly here.
+    if (next == nullptr && engine_.hasSetlist()) {
+        const auto* next_song = engine_.setlist().peekNext();
+        g.setColour(kStageDim);
+        g.setFont(stageFont(24.0f, false));
+        g.drawText(next_song != nullptr
+                       ? "THEN: " + juce::String(next_song->cachedTitle).toUpperCase()
+                       : juce::String("END OF SET"),
+                   area.removeFromTop(30), juce::Justification::centredLeft);
+    }
 }
 
 void PerformanceView::drawStatusRow(juce::Graphics& g, juce::Rectangle<int> area) {

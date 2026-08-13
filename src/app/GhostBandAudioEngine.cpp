@@ -228,6 +228,8 @@ void GhostBandAudioEngine::performAction(core::PerformanceAction action) {
         case PerformanceAction::IntensityDown:
             setAiIntensity(intensity_.intensity() - kIntensityPedalStep);
             break;
+        case PerformanceAction::NextSong:        nextSong(); break;
+        case PerformanceAction::PreviousSong:    previousSong(); break;
         // Already latched on the MIDI thread. This pass is idempotent and adds the work
         // that does not belong there: muting the backend, releasing notes, logging.
         case PerformanceAction::Panic:           panic(); return;
@@ -267,7 +269,7 @@ bool GhostBandAudioEngine::anyMidiDeviceConnected() const noexcept {
     return !open_midi_inputs_.isEmpty();
 }
 
-bool GhostBandAudioEngine::loadSong(const core::Song& song) {
+bool GhostBandAudioEngine::activateSong(const core::Song& song) {
     loaded_song_ = song;
     performance_.setBackend(backend_.get());
     if (!performance_.loadSong(&loaded_song_)) return false;
@@ -276,6 +278,13 @@ bool GhostBandAudioEngine::loadSong(const core::Song& song) {
     base_prompt_ = juce::String(loaded_song_.defaultStylePrompt);
     updateAiAudible();
     return true;
+}
+
+bool GhostBandAudioEngine::loadSong(const core::Song& song) {
+    // Opening a single song ends any set that was loaded. Leaving the setlist behind would
+    // mean a NEXT SONG press later jumping to a song the performer is no longer in.
+    setlist_.clear();
+    return activateSong(song);
 }
 
 void GhostBandAudioEngine::loadDemoSong() { loadSong(core::makeDemoSong()); }
@@ -297,6 +306,170 @@ bool GhostBandAudioEngine::repeatSection() {
     updateAiAudible();
     return true;
 }
+
+juce::File GhostBandAudioEngine::songsDirectory() {
+    return juce::File::getSpecialLocation(juce::File::userDocumentsDirectory)
+        .getChildFile("GhostBand")
+        .getChildFile("Songs");
+}
+
+juce::File GhostBandAudioEngine::setlistsDirectory() {
+    return juce::File::getSpecialLocation(juce::File::userDocumentsDirectory)
+        .getChildFile("GhostBand")
+        .getChildFile("Setlists");
+}
+
+namespace {
+
+/// Write text to a file without leaving a truncated one behind if the write fails.
+///
+/// `replaceWithText` truncates first, so a failure part-way through destroys the previous
+/// version. Writing to a sibling and moving into place means the worst case is an unused
+/// temporary rather than a song that no longer opens.
+juce::String writeAtomically(const juce::File& target, const juce::String& text) {
+    target.getParentDirectory().createDirectory();
+
+    const auto temp = target.getSiblingFile(target.getFileName() + ".writing");
+    if (!temp.replaceWithText(text)) {
+        temp.deleteFile();
+        return "Could not write to " + target.getParentDirectory().getFullPathName();
+    }
+    if (!temp.moveFileTo(target)) {
+        temp.deleteFile();
+        return "Could not save " + target.getFileName();
+    }
+    return {};
+}
+
+} // namespace
+
+juce::String GhostBandAudioEngine::saveSongAs(const core::Song& song,
+                                              juce::File& fileWritten) {
+    if (const auto why = song.validate(); !why.empty()) {
+        // Saving an unplayable song would mean discovering the problem at soundcheck.
+        return "Cannot save: " + juce::String(why);
+    }
+
+    const auto stem = core::toSafeFileStem(song.title);
+    fileWritten = songsDirectory().getChildFile(juce::String(stem)
+                                               + core::kSongFileExtension);
+
+    const auto error = writeAtomically(fileWritten, juce::String(core::serialiseSong(song)));
+    if (error.isNotEmpty()) return error;
+
+    Logger::instance().info(LogCategory::Generation, "song saved",
+                            {{"title", song.title},
+                             {"path", fileWritten.getFullPathName().toStdString()}});
+    return {};
+}
+
+juce::String GhostBandAudioEngine::loadSongFile(const juce::File& file) {
+    if (!file.existsAsFile()) return "No such file: " + file.getFileName();
+
+    core::Song song;
+    const auto result = core::deserialiseSong(file.loadFileAsString().toStdString(), song);
+    if (!result.ok) {
+        // The line number is the difference between "this song is broken" and a fix the
+        // performer can make in a text editor in thirty seconds.
+        juce::String message = file.getFileName() + ": " + juce::String(result.message);
+        if (result.line > 0) message += " (line " + juce::String(result.line) + ")";
+        Logger::instance().error(LogCategory::Generation, "song load failed",
+                                 {{"path", file.getFullPathName().toStdString()},
+                                  {"reason", result.message}});
+        return message;
+    }
+
+    if (!loadSong(song)) return "Song loaded but could not be prepared for performance.";
+    Logger::instance().info(LogCategory::Generation, "song loaded",
+                            {{"title", song.title}});
+    return {};
+}
+
+juce::String GhostBandAudioEngine::saveSetlist(const core::Setlist& list,
+                                               juce::File& fileWritten) {
+    if (const auto why = list.validate(); !why.empty()) {
+        return "Cannot save: " + juce::String(why);
+    }
+
+    fileWritten = setlistsDirectory().getChildFile(
+        juce::String(core::toSafeFileStem(list.name)) + core::kSetlistFileExtension);
+
+    const auto error = writeAtomically(fileWritten,
+                                       juce::String(core::serialiseSetlist(list)));
+    if (error.isNotEmpty()) return error;
+
+    Logger::instance().info(LogCategory::Generation, "setlist saved",
+                            {{"name", list.name},
+                             {"songs", std::to_string(list.entries.size())}});
+    return {};
+}
+
+juce::String GhostBandAudioEngine::loadSetlistFile(const juce::File& file) {
+    if (!file.existsAsFile()) return "No such file: " + file.getFileName();
+
+    core::Setlist list;
+    const auto result = core::deserialiseSetlist(file.loadFileAsString().toStdString(), list);
+    if (!result.ok) {
+        juce::String message = file.getFileName() + ": " + juce::String(result.message);
+        if (result.line > 0) message += " (line " + juce::String(result.line) + ")";
+        return message;
+    }
+
+    // Songs are resolved relative to the setlist's own folder first, then the shared songs
+    // directory. That way a set carried to another machine in one folder still opens.
+    std::vector<std::optional<core::Song>> songs;
+    songs.reserve(list.entries.size());
+    int missing = 0;
+
+    for (const auto& entry : list.entries) {
+        const juce::String name(entry.songFile);
+        juce::File song_file = file.getParentDirectory().getChildFile(name);
+        if (!song_file.existsAsFile()) song_file = songsDirectory().getChildFile(name);
+
+        core::Song song;
+        if (song_file.existsAsFile()
+            && core::deserialiseSong(song_file.loadFileAsString().toStdString(), song).ok) {
+            songs.push_back(std::move(song));
+        } else {
+            // Kept as a gap rather than dropped — see SetlistController::load.
+            songs.push_back(std::nullopt);
+            ++missing;
+        }
+    }
+
+    if (!setlist_.load(list, std::move(songs))) {
+        return "Setlist could not be prepared.";
+    }
+
+    Logger::instance().info(LogCategory::Generation, "setlist loaded",
+                            {{"name", list.name},
+                             {"songs", std::to_string(list.entries.size())},
+                             {"missing", std::to_string(missing)}});
+
+    // Missing songs are surfaced by missingSongs(), not treated as a load failure: a set
+    // that is 11 of 12 songs is still playable, and refusing it would hide which 11.
+    if (const auto* song = setlist_.currentSong(); song != nullptr) {
+        activateSong(*song);
+    }
+    return {};
+}
+
+bool GhostBandAudioEngine::goToSong(int index) {
+    if (!setlist_.goTo(index)) return false;
+
+    const auto* song = setlist_.currentSong();
+    if (song == nullptr) {
+        // A gap in the set. The move still counts — the performer navigated to it and the
+        // UI must show it — but there is nothing to hand the performance engine.
+        Logger::instance().warn(LogCategory::Generation, "setlist entry is missing",
+                                {{"index", std::to_string(index)}});
+        return true;
+    }
+    return activateSong(*song);
+}
+
+bool GhostBandAudioEngine::nextSong() { return goToSong(setlist_.currentIndex() + 1); }
+bool GhostBandAudioEngine::previousSong() { return goToSong(setlist_.currentIndex() - 1); }
 
 void GhostBandAudioEngine::updateAiAudible() {
     const bool section_wants_ai = !performance_.hasSong() || performance_.currentSectionAiEnabled();

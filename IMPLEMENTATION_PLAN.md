@@ -143,8 +143,8 @@ cmake --build build -j && ctest --test-dir build --output-on-failure
 | 2.4 | Wire sections to the engine: prompt blend + intensity per section | ✅ core done, **tested** (`PerformanceEngine`) — sections take all 6 slots; intensity keeps parameter terms only |
 | 2.5 | Performance Mode UI (huge section name, next preview, minimal chrome) | ✅ **works on hardware** — section changes sound musical, driven by arrow keys alone |
 | 2.6 | MIDI foot controller + MIDI Learn + persistent mappings | 🟡 core done, **tested** (`MidiMappingSet`, 33 tests); engine wiring + `FootControlPanel` + mapping file **written, not compiled** — see `KNOWN_ISSUES.md` §15 |
-| 2.7 | Setlists | ❌ |
-| 2.8 | Versioned persistence with migrations | ❌ |
+| 2.7 | Setlists | 🟡 core done, **tested** (`Setlist`, `SetlistController`, 22 tests); app wiring + stage-screen set position **written, not compiled** |
+| 2.8 | Versioned persistence with migrations | 🟡 core done, **tested** (`Persistence`, 45 tests) — schema version, newer-file refusal, migration dispatch, C-locale numbers; file I/O **written, not compiled** |
 | 2.9 | Song Map harmony mode | ❌ |
 
 The prompt-slot pre-encoding strategy (`ARCHITECTURE.md` §8) is a Phase 2 prerequisite,

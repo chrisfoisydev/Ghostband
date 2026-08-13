@@ -356,3 +356,42 @@ it. A shared path only stays shared if new features are added *to* it.
 on-screen keyboard, confirm each row lights on press. Then repeat with a real pedal on CC
 and run a song end to end using only the pedal. Criterion 6 in `STAGE_READINESS.md` stays
 ⚠️ until the pedal half has happened.
+
+---
+
+## 16. ⚠️ Songs and setlists have never been written to or read from a real disk
+
+**Impact:** the format and its parser are well covered; the file handling around them is
+not covered at all.
+
+What **is** tested, on Linux, by 67 tests in `PersistenceTests` and `SetlistTests`:
+round-trip fidelity, schema versioning, refusal of files from a newer GhostBand,
+line-numbered parse errors, corrupt and truncated input, CRLF, comments, unknown keys,
+clamping, C-locale numbers, file-stem safety, and missing-song handling in a set.
+
+What is **not** tested, because it is JUCE code this machine cannot compile:
+
+- `saveSongAs` / `loadSongFile` / `saveSetlist` / `loadSetlistFile` — every path that
+  touches the filesystem.
+- The atomic write (temp file, then move into place). It exists because
+  `File::replaceWithText` truncates first, so a failure part-way through would destroy the
+  previous version of a song. That reasoning is untested.
+- Directory creation under `~/Documents/GhostBand`, and macOS's permission prompt the
+  first time an app writes to Documents. **This is the most likely first failure** and it
+  has never been seen.
+- The `FileChooser` flows, including cancellation.
+- Song resolution for a setlist: the setlist's own folder first, then the shared songs
+  directory.
+
+**Deliberate non-goals for now**, so they are not mistaken for oversights:
+
+- There is **no Song Editor**. Songs can be saved, opened and performed, but the only song
+  that can be *created* is the demo. Editing is Phase 5.
+- There is **no setlist editor** either. A setlist must currently be written by hand in a
+  text editor — which the format is designed to make possible, but it is not a feature.
+- Nothing auto-saves. A song edited in memory is lost unless SAVE SONG is pressed.
+
+**To close it:** on the Mac, save the demo song, quit, relaunch, open it, and confirm the
+sections and intensities survived. Then hand-write a setlist naming two songs plus one
+that does not exist, and confirm the set loads with a visible gap and names the missing
+song rather than silently shortening the running order.

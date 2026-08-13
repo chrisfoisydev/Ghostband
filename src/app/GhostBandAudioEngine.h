@@ -13,6 +13,8 @@
 #include "core/MidiHarmonyState.h"
 #include "core/MidiMapping.h"
 #include "core/PerformanceEngine.h"
+#include "core/Persistence.h"
+#include "core/Setlist.h"
 #include "core/Song.h"
 
 #include <juce_audio_devices/juce_audio_devices.h>
@@ -22,6 +24,8 @@
 #include <atomic>
 #include <cstdint>
 #include <memory>
+#include <optional>
+#include <string>
 #include <vector>
 
 namespace ghostband::app {
@@ -106,6 +110,40 @@ public:
     bool nextSection();
     bool previousSection();
     bool repeatSection();
+    /// @}
+
+    /// @name Songs and setlists on disk (Phase 2.7 / 2.8)
+    ///
+    /// Songs live under ~/Documents/GhostBand, not Application Support: they are the
+    /// performer's own work, so they must be visible in Finder, easy to back up, and easy
+    /// to carry to another machine. Foot-controller mappings are app state and stay in
+    /// Application Support.
+    /// @{
+    static juce::File songsDirectory();
+    static juce::File setlistsDirectory();
+
+    /// Save under a name derived from the title. Returns an empty string on success, or a
+    /// performer-readable reason.
+    juce::String saveSongAs(const core::Song& song, juce::File& fileWritten);
+    /// Load and make current. Empty string on success.
+    juce::String loadSongFile(const juce::File& file);
+
+    /// Load a setlist and every song it names. Songs that fail to load leave a visible gap
+    /// rather than being dropped; `missingSongs()` reports them. Empty string on success —
+    /// missing songs are **not** a failure, because 11 of 12 songs is still a playable set.
+    juce::String loadSetlistFile(const juce::File& file);
+    juce::String saveSetlist(const core::Setlist& list, juce::File& fileWritten);
+
+    bool hasSetlist() const noexcept { return setlist_.isLoaded(); }
+    const core::SetlistController& setlist() const noexcept { return setlist_; }
+    std::vector<std::string> missingSongs() const { return setlist_.missingTitles(); }
+
+    /// Move through the set. Each loads the song at the new position and resets it to its
+    /// first section — a song should always start at the top, never wherever the last
+    /// visit left it.
+    bool nextSong();
+    bool previousSong();
+    bool goToSong(int index);
     /// @}
 
     /// @name Harmony (Phase 1)
@@ -263,11 +301,17 @@ private:
 
     std::unique_ptr<juce::ThreadPool> load_pool_;
 
+    /// Point the performance engine at a song and bring the output state into line.
+    /// Shared by loadSong and every setlist move, so a song entered from a set behaves
+    /// exactly like one opened on its own.
+    bool activateSong(const core::Song& song);
+
     core::MidiHarmonyState harmony_;
     core::PerformanceEngine performance_;
     /// Owned copy: Song is cheap to hold and this removes a lifetime trap where a UI
     /// component's song outlives, or fails to outlive, the engine driving it.
     core::Song loaded_song_;
+    core::SetlistController setlist_;
     bool ai_band_on_ = false;
     double last_tick_ms_ = 0.0;
     core::IntensityMacro intensity_;

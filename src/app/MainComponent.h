@@ -59,6 +59,12 @@ private:
     void applyPrompt();
     void loadModel();
 
+    void saveCurrentSong();
+    void openSongFile();
+    void openSetlistFile();
+    /// Report a load/save outcome in the warning line. Empty text clears it.
+    void showFileMessage(const juce::String& message, bool isError);
+
     /// Draw the GHOSTBAND wordmark: "GHOST" outlined, "BAND" solid, set as one word.
     /// `baseline` is the text baseline, not the top of the glyphs.
     void drawWordmark(juce::Graphics& g, float x, float baseline, float height);
@@ -76,6 +82,11 @@ private:
     /// Performance Mode would be a screen that promises a set it cannot run.
     juce::TextButton performance_button_{"PERFORMANCE MODE"};
     juce::TextButton foot_control_button_{"FOOT CONTROL"};
+    juce::TextButton save_song_button_{"SAVE SONG"};
+    juce::TextButton open_song_button_{"OPEN SONG"};
+    juce::TextButton open_setlist_button_{"OPEN SETLIST"};
+    /// Owned because a FileChooser must outlive the async callback that uses it.
+    std::unique_ptr<juce::FileChooser> file_chooser_;
     juce::TextButton start_button_{"START"};
     juce::TextButton stop_button_{"STOP"};
     juce::TextButton panic_button_{"PANIC"};
@@ -116,6 +127,10 @@ private:
 
     juce::Label status_label_;
     juce::Label warning_label_;
+    /// Outcome of the last save/open. Separate from warning_label_, which is rewritten
+    /// from engine state ten times a second and would erase it immediately.
+    juce::Label file_status_label_;
+    bool file_status_is_error_ = false;
     juce::Viewport diagnostics_viewport_;
     DiagnosticsText diagnostics_text_;
 

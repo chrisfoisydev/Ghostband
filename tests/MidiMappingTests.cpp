@@ -272,9 +272,14 @@ TEST("the default layout is a five-switch pedal") {
     CHECK(set.bindingFor(PerformanceAction::IntensityUp) == cc(83));
     CHECK(set.bindingFor(PerformanceAction::Panic) == cc(84));
 
-    // Five switches, so two actions are deliberately left unmapped rather than doubled up.
+    // Five switches, so the rest are deliberately left unmapped rather than doubled up.
+    // Song navigation is among them: it only means anything once a setlist is loaded, and
+    // a default that does nothing on most days teaches the performer to distrust the pedal.
     CHECK(!set.hasBinding(PerformanceAction::RepeatSection));
     CHECK(!set.hasBinding(PerformanceAction::IntensityDown));
+    CHECK(!set.hasBinding(PerformanceAction::NextSong));
+    CHECK(!set.hasBinding(PerformanceAction::PreviousSong));
+    CHECK_EQ(set.mappedCount(), 5);
 }
 
 TEST("no default binding is a note, so playing keys cannot change section") {

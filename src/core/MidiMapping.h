@@ -19,6 +19,10 @@ enum class PerformanceAction {
     Panic,
     IntensityUp,
     IntensityDown,
+    /// Moving between songs of a setlist. A set the performer has to walk back to the
+    /// laptop to advance is not a set they can perform.
+    NextSong,
+    PreviousSong,
 };
 
 const char* toString(PerformanceAction a) noexcept;

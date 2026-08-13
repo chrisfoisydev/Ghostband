@@ -18,6 +18,8 @@ const char* toString(PerformanceAction a) noexcept {
         case PerformanceAction::Panic:           return "panic";
         case PerformanceAction::IntensityUp:     return "intensity_up";
         case PerformanceAction::IntensityDown:   return "intensity_down";
+        case PerformanceAction::NextSong:        return "next_song";
+        case PerformanceAction::PreviousSong:    return "previous_song";
     }
     return "none";
 }
@@ -32,6 +34,8 @@ const char* toDisplayString(PerformanceAction a) noexcept {
         case PerformanceAction::Panic:           return "PANIC";
         case PerformanceAction::IntensityUp:     return "INTENSITY +";
         case PerformanceAction::IntensityDown:   return "INTENSITY -";
+        case PerformanceAction::NextSong:        return "NEXT SONG";
+        case PerformanceAction::PreviousSong:    return "PREVIOUS SONG";
     }
     return "-";
 }
@@ -48,6 +52,8 @@ std::vector<PerformanceAction> allPerformanceActions() {
         PerformanceAction::PreviousSection,
         PerformanceAction::NextSection,
         PerformanceAction::RepeatSection,
+        PerformanceAction::PreviousSong,
+        PerformanceAction::NextSong,
         PerformanceAction::ToggleAiBand,
         PerformanceAction::IntensityUp,
         PerformanceAction::IntensityDown,
