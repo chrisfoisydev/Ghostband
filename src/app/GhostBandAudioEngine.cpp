@@ -141,7 +141,9 @@ void GhostBandAudioEngine::saveMidiMappings() {
 
     // Written on every change rather than at shutdown: a crash or a force-quit after
     // soundcheck must not cost the performer their pedal layout.
-    if (!file.replaceWithText(juce::String(midiMappings().serialise()))) {
+    // Explicit "\n" — see writeAtomically. Defaulting to CRLF here cost every foot-control
+    // mapping on restart, because the mapping parser read "81\r" as no number at all.
+    if (!file.replaceWithText(juce::String(midiMappings().serialise()), false, false, "\n")) {
         Logger::instance().warn(LogCategory::Midi, "could not save foot controller mappings",
                                 {{"path", file.getFullPathName().toStdString()}});
     }
@@ -330,7 +332,11 @@ juce::String writeAtomically(const juce::File& target, const juce::String& text)
     target.getParentDirectory().createDirectory();
 
     const auto temp = target.getSiblingFile(target.getFileName() + ".writing");
-    if (!temp.replaceWithText(text)) {
+    // The explicit "\n" is load-bearing: replaceWithText's fourth parameter defaults to
+    // "\r\n", so leaving it out silently rewrites every line ending. The song parser
+    // tolerates CRLF, but the file should say what serialiseSong produced — otherwise the
+    // bytes on disk never match the serialiser, and diffing a song in git is noise.
+    if (!temp.replaceWithText(text, false, false, "\n")) {
         temp.deleteFile();
         return "Could not write to " + target.getParentDirectory().getFullPathName();
     }

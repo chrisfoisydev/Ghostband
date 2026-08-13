@@ -400,3 +400,44 @@ exercised it:
 sections and intensities survived. Then hand-write a setlist naming two songs plus one
 that does not exist, and confirm the set loads with a visible gap and names the missing
 song rather than silently shortening the running order.
+
+---
+
+## 17. ✅ FIXED — every foot-control mapping was lost on restart
+
+**Found on hardware, 2026-08-13, by chasing a 26-byte discrepancy.**
+
+A saved song was 655 bytes on the Mac. The same `serialiseSong` output on Linux was 629.
+The content was byte-identical when diffed — and the file has exactly 26 lines.
+
+**Cause:** `juce::File::replaceWithText` takes a `lineEndings` parameter that **defaults to
+`"\r\n"`**. Every file GhostBand wrote was silently converted to CRLF.
+
+For songs this was harmless: `Persistence.cpp` strips a trailing CR, and there is a test
+for it. For foot-control mappings it was not. `MidiMappingSet::deserialise` had no such
+guard, so a saved line came back as `next_section=cc:0:81\r`, `parseWholeNumber("81\r")`
+correctly rejected a non-digit, and the binding was dropped.
+
+**Impact, stated plainly:** every mapping the performer made was silently discarded the
+next time the app launched. `mappedCount()` went from 5 to 0 with nothing on screen to
+explain it. On stage that is a pedal that worked at soundcheck and is dead by the show —
+and the diagnostics line would have read `nothing mapped`, which is accurate and useless.
+
+**Fixed at both ends:**
+
+- Both `replaceWithText` calls now pass `"\n"` explicitly. The bytes on disk match what
+  the serialiser produced, so a song can be diffed in git without line-ending noise.
+- `MidiMappingSet::deserialise` strips a trailing CR, matching what `Persistence.cpp`
+  already did. Files that already carry CRLF — including every mappings file written
+  before this fix, and any edited on another machine — still load.
+
+Covered by a regression test that builds a CRLF document from `serialise()` and asserts
+every binding survives.
+
+**Lesson worth keeping.** Two parsers, one hardened against CRLF and one not, because only
+one had a test for it. The defensive choice in `Persistence.cpp` was made on general
+principle and turned out to be load-bearing; the identical reasoning was simply not applied
+to `MidiMapping.cpp`. When a defence is worth writing once, check whether the same input
+reaches anywhere else.
+
+Also worth keeping: this was found by *not* accepting a byte count that nearly matched.

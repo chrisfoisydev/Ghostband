@@ -273,6 +273,14 @@ MidiMappingSet MidiMappingSet::deserialise(const std::string& text) {
     std::string line;
 
     while (std::getline(is, line)) {
+        // Strip a trailing CR. JUCE's File::replaceWithText writes "\r\n" by default, so
+        // the mappings file GhostBand itself saves comes back with one on every line —
+        // and "81\r" is not a number, so every binding was silently dropped and the
+        // performer's whole pedal layout vanished on restart. Writing is fixed too, but
+        // this stays: files that already have CRLF, or came from another machine, must
+        // still load.
+        if (!line.empty() && line.back() == '\r') line.pop_back();
+
         const auto eq = line.find('=');
         if (eq == std::string::npos) continue;   // tolerate junk rather than refusing to load
 

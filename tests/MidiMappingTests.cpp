@@ -429,6 +429,27 @@ TEST("deserialising nothing yields an empty set, not a default one") {
     for (auto a : allPerformanceActions()) CHECK(!set.hasBinding(a));
 }
 
+TEST("a file with CRLF line endings loads every mapping") {
+    // Found on hardware, not in review. JUCE's File::replaceWithText defaults to writing
+    // "\r\n", so the file GhostBand saved came back with a trailing CR on every line;
+    // "81\r" parses as no number at all, and all five default mappings were dropped in
+    // silence. The performer's pedal would have worked at soundcheck and been dead by the
+    // show, with nothing on screen to explain it.
+    const auto original = MidiMappingSet::makeDefault();
+
+    std::string crlf;
+    for (char c : original.serialise()) {
+        if (c == '\n') crlf += '\r';
+        crlf += c;
+    }
+
+    const auto restored = MidiMappingSet::deserialise(crlf);
+    CHECK_EQ(restored.mappedCount(), original.mappedCount());
+    for (auto a : allPerformanceActions()) {
+        CHECK(restored.bindingFor(a) == original.bindingFor(a));
+    }
+}
+
 TEST("a restored set still debounces from a clean slate") {
     MidiMappingSet set = MidiMappingSet::deserialise("next_section=note:0:61\n");
     CHECK_EQ(static_cast<int>(set.handleMessage(note(61), true, 0.0)),
