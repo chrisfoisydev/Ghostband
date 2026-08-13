@@ -344,7 +344,16 @@ FOOT CONTROL screen.
 only rule, the 120 ms debounce, learn semantics, binding theft, and settings-file
 corruption. What those tests cannot cover is everything below `core`:
 
+**MIDI Learn confirmed working, 2026-08-13.** On an M2 Pro: arming LEARN, clicking a key
+on the FOOT CONTROL screen's keyboard, and seeing the binding taken and the action fire —
+the full chain of match, consume, queue, drain, act. That is the first time any of the foot
+control path has been exercised outside unit tests.
+
+Still open:
+
 - No hardware MIDI foot controller has ever been connected to this project (see also §1).
+- Whether a learnt mapping survives a restart — the fix for §17/§18 — is not yet re-checked
+  on this build.
 - The `GhostBandAudioEngine` wiring, `FootControlPanel`, and the mapping file now
   **compile on the target Mac and the app launches** (2026-08-13). Nothing beyond that is
   established: no mapping has been learnt, no action fired, no file written.
