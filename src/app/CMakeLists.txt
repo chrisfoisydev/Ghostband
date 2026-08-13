@@ -18,16 +18,46 @@ message(STATUS "GhostBand: fetching JUCE...")
 FetchContent_MakeAvailable(JUCE)
 
 # --- Magenta RealTime 2 -------------------------------------------------------
+#
+# Auto-detect before demanding. The documented command line carries a
+# `/path/to/magenta-realtime` placeholder, and that placeholder has been pasted verbatim
+# at least once — so the common case of a checkout sitting next to or inside the GhostBand
+# directory should just work, and the failure message should say where it looked.
+set(GHOSTBAND_MRT_CANDIDATES
+    "${CMAKE_SOURCE_DIR}/magenta-realtime"
+    "${CMAKE_SOURCE_DIR}/../magenta-realtime"
+    "$ENV{HOME}/magenta-realtime"
+    "$ENV{HOME}/Documents/magenta-realtime"
+    "$ENV{HOME}/src/magenta-realtime")
+
 if(NOT MAGENTA_RT_DIR)
-    message(FATAL_ERROR
-        "MAGENTA_RT_DIR is not set.\n"
-        "Point it at a checkout of https://github.com/magenta/magenta-realtime, e.g.\n"
-        "  cmake -B build -DGHOSTBAND_BUILD_APP=ON -DMAGENTA_RT_DIR=/path/to/magenta-realtime")
+    foreach(candidate IN LISTS GHOSTBAND_MRT_CANDIDATES)
+        if(EXISTS "${candidate}/core/CMakeLists.txt")
+            get_filename_component(MAGENTA_RT_DIR "${candidate}" ABSOLUTE)
+            message(STATUS "GhostBand: found magenta-realtime at ${MAGENTA_RT_DIR}")
+            break()
+        endif()
+    endforeach()
 endif()
-if(NOT EXISTS "${MAGENTA_RT_DIR}/core/CMakeLists.txt")
+
+if(NOT MAGENTA_RT_DIR OR NOT EXISTS "${MAGENTA_RT_DIR}/core/CMakeLists.txt")
+    # One message for both cases. "Not set" and "set to the wrong place" have the same fix,
+    # and listing the searched paths turns a guess into a check.
+    if(MAGENTA_RT_DIR)
+        set(why "MAGENTA_RT_DIR='${MAGENTA_RT_DIR}' has no core/CMakeLists.txt.")
+    else()
+        set(why "MAGENTA_RT_DIR is not set and no checkout was found automatically.")
+    endif()
+
+    string(REPLACE ";" "\n    " searched "${GHOSTBAND_MRT_CANDIDATES}")
     message(FATAL_ERROR
-        "MAGENTA_RT_DIR='${MAGENTA_RT_DIR}' does not look like a magenta-realtime checkout "
-        "(no core/CMakeLists.txt).")
+        "${why}\n"
+        "Searched:\n    ${searched}\n\n"
+        "Point it at your checkout of https://github.com/magenta/magenta-realtime.\n"
+        "To find it:  find ~ -maxdepth 4 -type d -name magenta-realtime\n"
+        "Then:        cmake -B build -DGHOSTBAND_BUILD_APP=ON "
+        "-DMAGENTA_RT_DIR=<the path you just found>\n"
+        "Note the placeholder above is not a real path - substitute your own.")
 endif()
 
 # Upstream's root CMakeLists pulls in MLX, TFLite and SentencePiece, then defines

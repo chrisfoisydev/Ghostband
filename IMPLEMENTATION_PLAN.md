@@ -99,7 +99,10 @@ cd magenta-realtime && cmake . -B build && cmake --build build --target hello_mr
 # expect: out.wav, 4.00 s, 48 kHz stereo float
 
 # 3. GhostBand (tasks 0.10–0.11, 0.15)
-cmake -B build -DGHOSTBAND_BUILD_APP=ON -DMAGENTA_RT_DIR=/path/to/magenta-realtime
+# MAGENTA_RT_DIR is auto-detected when the checkout sits beside GhostBand, inside it, or
+# at ~/magenta-realtime. Otherwise pass it explicitly — and substitute a real path:
+#   find ~ -maxdepth 4 -type d -name magenta-realtime
+cmake -B build -DGHOSTBAND_BUILD_APP=ON
 cmake --build build -j && ctest --test-dir build --output-on-failure
 ```
 
