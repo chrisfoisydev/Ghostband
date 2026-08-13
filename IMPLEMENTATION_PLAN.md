@@ -172,8 +172,16 @@ recovery · richer diagnostics · buffer tuning on real hardware · benchmarking
 
 ## Phase 5 — Product polish
 
-Onboarding · presets · Song Editor · performance-state restore · async recording writer ·
-import/export · model management · packaging + notarisation. All ❌.
+Onboarding · presets · performance-state restore · async recording writer · import/export ·
+model management · packaging + notarisation. All ❌.
+
+**Song Editor — 🟡 core done, pulled forward from this phase.** Persistence (2.7/2.8)
+saves and opens songs, but until there was an editor the only song that could be *created*
+was the demo, which made the feature plumbing without a tap. `SongEditor` is in
+`ghostband::core` and **tested** (26 tests): section add/duplicate/remove/reorder, unique
+names, range refusal rather than clamping, bounded undo, dirty tracking, live validation,
+and prompt-slot overflow surfaced while editing rather than at save time. The editor UI is
+not built yet.
 
 ---
 

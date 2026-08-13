@@ -94,10 +94,23 @@ base / full wordings of the current prompt, which is the strongest arrangement l
 offers. Sections and intensity compete for the same six slots and there is no arrangement
 that gives both everything.
 
-Resolved by **reserving** slots: 2 for intensity's density variants, leaving **4 for
-section prompts**. Four distinct prompts covers Verse / Chorus / Bridge / Outro, which is
-most songs. The reservation is a constructor argument, so the trade is inspectable and
-adjustable rather than buried.
+**Resolved by mode, not by a fixed split.** An earlier version of this entry described
+reserving 2 slots for intensity and leaving 4 for sections; that was superseded by task 2.4
+and the code no longer does it. What `PerformanceEngine` actually does
+(`PromptSlotAllocator{0}`):
+
+- **Free play, no song loaded:** intensity spends 3 slots on sparse/base/full wordings,
+  which is its strongest lever.
+- **Song loaded:** sections take **all 6** slots. Intensity keeps only its parameter terms
+  (`drumless`, `cfg_drums`, `cfg_musiccoca`, `temperature`).
+
+Intensity is genuinely weaker in song mode, and that is the acknowledged price of instant
+section changes — re-encoding its variants on every section change would reintroduce the
+exact stall this design exists to remove. It is a reasonable trade because a section's
+prompt text already expresses its density: a performer writes "sparse atmospheric piano"
+for a verse, so the contrast that matters most is carried by the sections themselves.
+
+`Song::fitsPromptSlots()` therefore checks against 6, matching what the engine grants.
 
 **Capacity is counted in distinct prompts, not sections.** Ten sections sharing two
 wordings cost two slots, so a long song with a consistent arrangement is fully resident.
