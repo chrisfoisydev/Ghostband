@@ -5,6 +5,8 @@
 
 #include "PerformanceView.h"
 
+#include "StagePalette.h"
+
 #include "core/ChordNamer.h"
 
 namespace ghostband::app {
@@ -13,13 +15,7 @@ namespace {
 
 // Stage palette: near-black, high contrast, no gradients. Readable from several feet in
 // a dark room and under coloured stage lighting.
-const juce::Colour kStageBg{0xff08090a};
-const juce::Colour kStageText{0xfff2f2f2};
-const juce::Colour kStageDim{0xff70767d};
-const juce::Colour kStageOk{0xff37c871};
-const juce::Colour kStageWarn{0xffe0a020};
-const juce::Colour kStageFault{0xffe0453e};
-const juce::Colour kStagePanic{0xffb3231c};
+// Palette lives in StagePalette.h. The stage ground is darker than setup's on purpose.
 
 // UI strings stay ASCII — see the note in MainComponent.cpp. On this screen it matters
 // more than anywhere else: it is read at a glance, mid-song, from a distance.

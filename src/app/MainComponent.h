@@ -7,6 +7,7 @@
 
 #include "FootControlPanel.h"
 #include "GhostBandAudioEngine.h"
+#include "SongEditorView.h"
 #include "PerformanceView.h"
 
 #include <juce_gui_extra/juce_gui_extra.h>
@@ -85,6 +86,7 @@ private:
     juce::TextButton save_song_button_{"SAVE SONG"};
     juce::TextButton open_song_button_{"OPEN SONG"};
     juce::TextButton open_setlist_button_{"OPEN SETLIST"};
+    juce::TextButton edit_song_button_{"EDIT SONG"};
     /// Owned because a FileChooser must outlive the async callback that uses it.
     std::unique_ptr<juce::FileChooser> file_chooser_;
     juce::TextButton start_button_{"START"};
@@ -130,7 +132,6 @@ private:
     /// Outcome of the last save/open. Separate from warning_label_, which is rewritten
     /// from engine state ten times a second and would erase it immediately.
     juce::Label file_status_label_;
-    bool file_status_is_error_ = false;
     juce::Viewport diagnostics_viewport_;
     DiagnosticsText diagnostics_text_;
 
@@ -148,9 +149,15 @@ private:
     bool foot_control_mode_ = false;
     void setFootControlMode(bool on);
 
-    /// Show exactly one of setup / Performance Mode / foot control. Centralised because
-    /// two independent show-hide passes had already made the setup screen reappear
-    /// underneath the mapping panel.
+    /// The authoring screen. Also an overlay, and also built once — opening it must not
+    /// allocate while the band is playing.
+    std::unique_ptr<SongEditorView> song_editor_view_;
+    bool song_editor_mode_ = false;
+    void setSongEditorMode(bool on);
+
+    /// Show exactly one of setup / Performance Mode / foot control / song editor.
+    /// Centralised because two independent show-hide passes had already made the setup
+    /// screen reappear underneath the mapping panel.
     void applyScreenVisibility();
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MainComponent)

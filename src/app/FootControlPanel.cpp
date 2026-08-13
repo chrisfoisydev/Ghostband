@@ -5,18 +5,14 @@
 
 #include "FootControlPanel.h"
 
+#include "StagePalette.h"
+
 namespace ghostband::app {
 
 namespace {
 
 // Same stage palette as MainComponent. UI literals are strictly ASCII — non-ASCII reached
 // the screen as mojibake on a real run.
-const juce::Colour kBackground{0xff0e0f11};
-const juce::Colour kPanel{0xff17191c};
-const juce::Colour kText{0xffe8e8e8};
-const juce::Colour kDim{0xff8a8f96};
-const juce::Colour kOk{0xff37c871};
-const juce::Colour kWarn{0xffe0a020};
 
 constexpr int kRowHeight = 34;
 

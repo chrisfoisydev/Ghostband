@@ -487,3 +487,31 @@ it, and the second was only exposed because the first was fixed.
 **Still unverified:** the fix is app-layer JUCE code and has not been compiled or run. What
 `ghostband::core` does guarantee is the property it depends on — that `isLearning()` is
 true before the learn press and false after — which `MidiMappingTests` covers.
+
+---
+
+## 19. ⚠️ The Song Editor UI has never been compiled or used
+
+`core::SongEditor` is covered by 26 tests. `SongEditorView` — the screen that drives it —
+is JUCE code this machine cannot build, and carries the usual app-layer risk plus two
+things specific to it:
+
+- **The `updating_` re-entrancy guard.** `refresh()` writes into every control, and
+  `TextEditor::setText` fires `onTextChange`. Without the guard each refresh would look
+  like a user edit and push a spurious undo entry, so undo would appear to do nothing. The
+  guard is reasoned, not observed.
+- **`juce::ListBox` lifetime.** The view is its own `ListBoxModel` and calls
+  `setModel(nullptr)` in its destructor. If that is wrong, it is wrong as a crash on close.
+
+**Deliberately absent, so they are not read as oversights:**
+
+- No chord-progression editing — that belongs with Song Map (2.9).
+- No drag-to-reorder; MOVE UP / MOVE DOWN only. Fewer moving parts.
+- No "save as" or rename-on-save: the file name is derived from the title, so retitling a
+  song and saving writes a **new file** and leaves the old one. That is safe but
+  surprising, and it is the first thing to fix once the screen has been used.
+- No setlist editor still (`KNOWN_ISSUES.md` §16).
+
+**To close it:** open EDIT SONG, add a section, rename it, reorder it, undo, save, quit,
+reopen. Then make a song whose sections use seven distinct prompts and confirm the amber
+slot warning appears while editing rather than at save time.

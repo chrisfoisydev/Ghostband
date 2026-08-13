@@ -5,6 +5,8 @@
 
 #include "MainComponent.h"
 
+#include "StagePalette.h"
+
 #include "core/ChordNamer.h"
 #include "core/GhostBandConstants.h"
 #include "core/Logging.h"
@@ -19,15 +21,7 @@ namespace {
 // mid-set has to be legible with certainty, so typography is not worth the risk here.
 // If a non-ASCII glyph is genuinely needed later, wrap it: juce::CharPointer_UTF8("...").
 
-// Dark, high-contrast, stage-hardware palette. No gradients, no purple, no sparkles.
-const juce::Colour kBackground{0xff0e0f11};
-const juce::Colour kPanel{0xff17191c};
-const juce::Colour kText{0xffe8e8e8};
-const juce::Colour kDim{0xff8a8f96};
-const juce::Colour kOk{0xff37c871};
-const juce::Colour kWarn{0xffe0a020};
-const juce::Colour kFault{0xffe0453e};
-const juce::Colour kPanicRed{0xffb3231c};
+// Palette lives in StagePalette.h so the semantic colours cannot drift between views.
 
 juce::String promptStatusText(core::PromptStatus s) {
     switch (s) {
@@ -108,6 +102,9 @@ MainComponent::MainComponent() {
 
     addAndMakeVisible(foot_control_button_);
     foot_control_button_.onClick = [this] { setFootControlMode(true); };
+
+    addAndMakeVisible(edit_song_button_);
+    edit_song_button_.onClick = [this] { setSongEditorMode(true); };
 
     addAndMakeVisible(save_song_button_);
     save_song_button_.onClick = [this] { saveCurrentSong(); };
@@ -230,6 +227,10 @@ MainComponent::MainComponent() {
     foot_control_panel_->onCloseRequested = [this] { setFootControlMode(false); };
     addChildComponent(*foot_control_panel_);
 
+    song_editor_view_ = std::make_unique<SongEditorView>(engine_);
+    song_editor_view_->onCloseRequested = [this] { setSongEditorMode(false); };
+    addChildComponent(*song_editor_view_);
+
     device_selector_ = std::make_unique<juce::AudioDeviceSelectorComponent>(
         engine_.deviceManager(),
         /*minInput*/ 0, /*maxInput*/ 0,   // Phase 0 has no input: GhostBand is additive only
@@ -332,7 +333,6 @@ void MainComponent::applyPrompt() {
 }
 
 void MainComponent::showFileMessage(const juce::String& message, bool isError) {
-    file_status_is_error_ = isError;
     file_status_label_.setColour(juce::Label::textColourId, isError ? kFault : kOk);
     file_status_label_.setText(message, juce::dontSendNotification);
 }
@@ -422,7 +422,7 @@ void MainComponent::setPerformanceMode(bool on) {
     performance_mode_ = on;
     // Leaving mapping armed behind a screen change would let the next pedal press rebind
     // something nobody is looking at.
-    if (on) foot_control_mode_ = false;
+    if (on) { foot_control_mode_ = false; song_editor_mode_ = false; }
     applyScreenVisibility();
     if (on && performance_view_ != nullptr) performance_view_->grabKeyboardFocus();
 }
@@ -430,21 +430,36 @@ void MainComponent::setPerformanceMode(bool on) {
 void MainComponent::setFootControlMode(bool on) {
     foot_control_mode_ = on;
     if (!on) engine_.cancelMidiLearn();
+    if (on) song_editor_mode_ = false;
+    applyScreenVisibility();
+}
+
+void MainComponent::setSongEditorMode(bool on) {
+    if (on && song_editor_view_ != nullptr) {
+        foot_control_mode_ = false;
+        // Always start from what is loaded, rather than whatever was left here last time.
+        // Editing a stale copy and saving it would silently overwrite the current song.
+        song_editor_view_->beginEditing(engine_.hasSong() ? *engine_.performance().song()
+                                                         : core::makeDemoSong());
+    }
+    song_editor_mode_ = on;
     applyScreenVisibility();
 }
 
 void MainComponent::applyScreenVisibility() {
     // Exactly one screen is visible at a time. Everything is hidden rather than destroyed,
     // so switching is instant and nothing is reallocated mid-performance.
-    const bool setup_visible = !performance_mode_ && !foot_control_mode_;
+    const bool setup_visible = !performance_mode_ && !foot_control_mode_ && !song_editor_mode_;
 
     for (int i = 0; i < getNumChildComponents(); ++i) {
         auto* child = getChildComponent(i);
-        if (child == performance_view_.get() || child == foot_control_panel_.get()) continue;
+        if (child == performance_view_.get() || child == foot_control_panel_.get()
+            || child == song_editor_view_.get()) continue;
         child->setVisible(setup_visible);
     }
     if (performance_view_ != nullptr) performance_view_->setVisible(performance_mode_);
     if (foot_control_panel_ != nullptr) foot_control_panel_->setVisible(foot_control_mode_);
+    if (song_editor_view_ != nullptr) song_editor_view_->setVisible(song_editor_mode_);
 
     resized();
     repaint();
@@ -630,7 +645,8 @@ void MainComponent::paint(juce::Graphics& g) {
 void MainComponent::resized() {
     if (performance_view_ != nullptr) performance_view_->setBounds(getLocalBounds());
     if (foot_control_panel_ != nullptr) foot_control_panel_->setBounds(getLocalBounds());
-    if (performance_mode_ || foot_control_mode_) return;   // an overlay owns the window
+    if (song_editor_view_ != nullptr) song_editor_view_->setBounds(getLocalBounds());
+    if (performance_mode_ || foot_control_mode_ || song_editor_mode_) return;  // overlay owns the window
 
     auto area = getLocalBounds().reduced(24);
     area.removeFromTop(60); // title block
@@ -656,6 +672,7 @@ void MainComponent::resized() {
     area.removeFromTop(4);
     auto buttons2 = area.removeFromTop(34);
     foot_control_button_.setBounds(buttons2.removeFromLeft(160).reduced(2));
+    edit_song_button_.setBounds(buttons2.removeFromLeft(120).reduced(2));
     open_song_button_.setBounds(buttons2.removeFromLeft(130).reduced(2));
     open_setlist_button_.setBounds(buttons2.removeFromLeft(140).reduced(2));
     save_song_button_.setBounds(buttons2.removeFromLeft(130).reduced(2));
