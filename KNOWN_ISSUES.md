@@ -561,6 +561,17 @@ correct path was never checked.
 - Log files are named `ghostband-*.log`. They had been `follow-*.log` since the rename,
   which made them hard to find by name as well as by path.
 
+**Confirmed on hardware, 2026-08-13.** A fresh launch created
+`~/Library/Application Support/GhostBand/`, migrated all 13 legacy `follow-*.log` files
+and `midi-mappings.txt` intact, and wrote a new `ghostband-*.log`. No crash reports. The
+recovered mappings file also settles the §18 question: mappings *had* been saved — they
+were landing where nothing looked for them.
+
 **Lesson worth keeping:** a platform API whose name reads like the obvious answer
 (`userApplicationDataDirectory`) is exactly the kind of thing to check rather than assume,
 and "the file is missing" is evidence about *a path*, not about *a write*.
+
+**Second lesson, from the same session.** `moreThanOneInstanceAllowed()` returns false, so
+`open` on the .app silently focuses a running instance instead of launching the new build.
+Several rounds of testing ran against a stale binary because of it. Quit GhostBand before
+relaunching after a build, or `pkill -x GhostBand` first.
