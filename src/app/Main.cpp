@@ -14,10 +14,13 @@ namespace {
 /// Mirror structured logs into a file next to the app's data, so a failed rehearsal can
 /// be diagnosed after the fact rather than from memory.
 void installFileLogSink() {
+    // Named "ghostband-", not "follow-": the working title survived in the log filename
+    // long after the rename, which makes the files hard to find by name.
     static juce::File log_file =
-        juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory)
-            .getChildFile("GhostBand/logs")
-            .getChildFile("follow-" + juce::Time::getCurrentTime().formatted("%Y%m%d-%H%M%S")
+        ghostband::app::GhostBandAudioEngine::supportDirectory()
+            .getChildFile("logs")
+            .getChildFile("ghostband-"
+                          + juce::Time::getCurrentTime().formatted("%Y%m%d-%H%M%S")
                           + ".log");
     log_file.getParentDirectory().createDirectory();
 
@@ -36,6 +39,9 @@ public:
     bool moreThanOneInstanceAllowed() override { return false; }
 
     void initialise(const juce::String&) override {
+        // Before the log sink, so the migration sees a clean destination and so the first
+        // line written lands in the corrected location.
+        ghostband::app::GhostBandAudioEngine::migrateSupportDirectory();
         installFileLogSink();
         ghostband::core::Logger::instance().info(ghostband::core::LogCategory::System,
                                               "GhostBand starting",

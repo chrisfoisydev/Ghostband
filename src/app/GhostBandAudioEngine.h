@@ -215,10 +215,23 @@ public:
     };
     FiredAction lastFiredAction() const;
 
-    /// Plain-text mappings under the user's application data directory. Saved on every
-    /// change, loaded at startup. Deliberately not versioned yet — task 2.8 owns schema
-    /// migration for songs and setlists, and this file will move under it rather than
-    /// growing a second, parallel versioning scheme now.
+    /// Where GhostBand keeps app state — mappings and logs, not the performer's songs.
+    ///
+    /// `~/Library/Application Support/GhostBand` on macOS. JUCE's
+    /// `userApplicationDataDirectory` is `~/Library` there, so it needs the extra
+    /// component; using it raw put everything in `~/Library/GhostBand`, where nothing
+    /// looks for it.
+    static juce::File supportDirectory();
+    /// The pre-fix location, kept only so its contents can be recovered.
+    static juce::File legacySupportDirectory();
+    /// Copy anything an older build left in the legacy directory. Never overwrites and
+    /// never deletes — a botched migration must not be able to lose a pedal layout.
+    static void migrateSupportDirectory();
+
+    /// Plain-text mappings under `supportDirectory()`. Saved on every change, loaded at
+    /// startup. Deliberately not versioned yet — task 2.8 owns schema migration for songs
+    /// and setlists, and this file will move under it rather than growing a second,
+    /// parallel versioning scheme now.
     static juce::File midiMappingFile();
     void saveMidiMappings();
     void loadMidiMappings();

@@ -526,3 +526,41 @@ things specific to it:
 **To close it:** open EDIT SONG, add a section, rename it, reorder it, undo, save, quit,
 reopen. Then make a song whose sections use seven distinct prompts and confirm the amber
 slot warning appears while editing rather than at save time.
+
+---
+
+## 20. ✅ FIXED — app data was written to `~/Library/GhostBand`, not Application Support
+
+**Found on hardware, 2026-08-13, while looking for a log file that did not appear to exist.**
+
+JUCE's `File::userApplicationDataDirectory` is **`~/Library` on macOS**, not
+`~/Library/Application Support`. GhostBand appended `GhostBand/` to it directly, so both
+the foot-controller mappings and every log file since 2026-08-09 were written to
+`~/Library/GhostBand/` — a location no macOS app uses, and outside the paths users,
+backups and Migration Assistant look in.
+
+**Cost, beyond the wrong location:** it burned a debugging session. The app had been
+logging correctly the entire time; the logs were simply being searched for somewhere else.
+Launching via `open` detaches stderr, so the terminal showed nothing either, and the only
+information available about a live app was "it just keeps generating".
+
+**It also contaminated an earlier diagnosis.** When
+`~/Library/Application Support/GhostBand/midi-mappings.txt` came back missing, that was
+read as proof the file was never written, and §18 was written on that basis. The §18 bug
+was real and confirmed by reading the code — `saveMidiMappings()` genuinely was unreachable
+from a learn — but the missing-file evidence cited for it was not sound, because the
+correct path was never checked.
+
+**Fixed:**
+
+- `GhostBandAudioEngine::supportDirectory()` appends `Application Support` on macOS and is
+  now the single source for both mappings and logs.
+- `migrateSupportDirectory()` copies anything an older build left in `~/Library/GhostBand`,
+  recursively and file-by-file, never overwriting and never deleting. It runs before the
+  log sink is installed so the merge sees a clean destination.
+- Log files are named `ghostband-*.log`. They had been `follow-*.log` since the rename,
+  which made them hard to find by name as well as by path.
+
+**Lesson worth keeping:** a platform API whose name reads like the obvious answer
+(`userApplicationDataDirectory`) is exactly the kind of thing to check rather than assume,
+and "the file is missing" is evidence about *a path*, not about *a write*.

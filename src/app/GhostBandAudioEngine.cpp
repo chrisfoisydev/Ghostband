@@ -138,10 +138,57 @@ void GhostBandAudioEngine::setMidiMappings(const core::MidiMappingSet& mappings)
     saveMidiMappings();
 }
 
-juce::File GhostBandAudioEngine::midiMappingFile() {
+juce::File GhostBandAudioEngine::supportDirectory() {
+    // On macOS `userApplicationDataDirectory` is `~/Library`, NOT `~/Library/Application
+    // Support`. Using it directly put GhostBand's data in `~/Library/GhostBand`, which is
+    // not where macOS apps keep anything — outside the paths users, backups and migration
+    // assistants look in. It also cost real debugging time: a whole session's logs existed
+    // and were being searched for in the wrong directory.
+    const auto base = juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory);
+#if JUCE_MAC
+    return base.getChildFile("Application Support").getChildFile("GhostBand");
+#else
+    return base.getChildFile("GhostBand");
+#endif
+}
+
+juce::File GhostBandAudioEngine::legacySupportDirectory() {
     return juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory)
-        .getChildFile("GhostBand")
-        .getChildFile("midi-mappings.txt");
+        .getChildFile("GhostBand");
+}
+
+void GhostBandAudioEngine::migrateSupportDirectory() {
+    const auto legacy = legacySupportDirectory();
+    const auto current = supportDirectory();
+    if (legacy == current) return;                    // not macOS, nothing to move
+    if (!legacy.isDirectory()) return;                // nothing written by an old build
+
+    // Copy rather than move, and never over an existing file. Losing a performer's pedal
+    // layout to a migration would be far worse than leaving a stale directory behind, so
+    // this errs entirely towards not destroying anything.
+    //
+    // Recursive over *files*, merging into whatever is already there, rather than copying
+    // whole directories. A directory-level "skip if it exists" would have silently skipped
+    // `logs/` in the common case, because the log sink creates it before this runs.
+    current.createDirectory();
+    int copied = 0;
+    for (const auto& entry : legacy.findChildFiles(juce::File::findFiles, true)) {
+        const auto relative = entry.getRelativePathFrom(legacy);
+        const auto target = current.getChildFile(relative);
+        if (target.existsAsFile()) continue;
+
+        target.getParentDirectory().createDirectory();
+        if (entry.copyFileTo(target)) ++copied;
+    }
+
+    Logger::instance().info(LogCategory::System, "migrated app data directory",
+                            {{"from", legacy.getFullPathName().toStdString()},
+                             {"to", current.getFullPathName().toStdString()},
+                             {"files", std::to_string(copied)}});
+}
+
+juce::File GhostBandAudioEngine::midiMappingFile() {
+    return supportDirectory().getChildFile("midi-mappings.txt");
 }
 
 void GhostBandAudioEngine::saveMidiMappings() {
@@ -518,6 +565,10 @@ GhostBandAudioEngine::GhostBandAudioEngine() {
     harmony_.setBackend(backend_.get());
     load_pool_ = std::make_unique<juce::ThreadPool>(1);
     performance_.setBackend(backend_.get());
+    // Before loading anything: an older build may have written mappings to the legacy
+    // location, and silently starting from defaults would look exactly like the two
+    // persistence bugs already fixed.
+    migrateSupportDirectory();
     loadMidiMappings();
     // 50 Hz: transitions are 250-2000 ms and blend weights only affect the next 40 ms
     // model frame, so anything faster would be false precision.
