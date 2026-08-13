@@ -46,14 +46,17 @@ juce::String collisionWarning(const core::MidiBinding& b) {
 
 } // namespace
 
-FootControlPanel::FootControlPanel(GhostBandAudioEngine& engine) : engine_(engine) {
+FootControlPanel::FootControlPanel(GhostBandAudioEngine& engine,
+                                   juce::MidiKeyboardState& keyboardState)
+    : engine_(engine), keyboard_state_(keyboardState) {
     addAndMakeVisible(heading_);
     heading_.setText("FOOT CONTROL", juce::dontSendNotification);
     heading_.setColour(juce::Label::textColourId, kText);
     heading_.setFont(juce::FontOptions(22.0f, juce::Font::bold));
 
     addAndMakeVisible(hint_);
-    hint_.setText("Press LEARN, then press the pedal. A row lights when its pedal fires.",
+    hint_.setText("Press LEARN, then press the pedal - or a key below if you have no pedal. "
+                  "A row lights when its action fires.",
                   juce::dontSendNotification);
     hint_.setColour(juce::Label::textColourId, kDim);
 
@@ -122,6 +125,20 @@ FootControlPanel::FootControlPanel(GhostBandAudioEngine& engine) : engine_(engin
         engine_.cancelMidiLearn();
         if (onCloseRequested) onCloseRequested();
     };
+
+    // The panel covers the whole window, so it carries its own keyboard: otherwise the
+    // only MIDI source on a machine with no pedal sits behind the screen asking for a
+    // press. Same MidiKeyboardState as the setup screen, so it is the same signal path.
+    keyboard_ = std::make_unique<juce::MidiKeyboardComponent>(
+        keyboard_state_, juce::MidiKeyboardComponent::horizontalKeyboard);
+    keyboard_->setAvailableRange(36, 84);
+    keyboard_->setLowestVisibleKey(48);
+    addAndMakeVisible(*keyboard_);
+
+    addAndMakeVisible(keyboard_hint_);
+    keyboard_hint_.setText("No pedal? Click a key to test - LEARN binds whatever you press.",
+                           juce::dontSendNotification);
+    keyboard_hint_.setColour(juce::Label::textColourId, kDim);
 
     rebuildLabels();
     startTimerHz(20);   // fast enough that the activity flash reads as a response
@@ -232,6 +249,11 @@ void FootControlPanel::resized() {
         row.binding->setBounds(r);
         area.removeFromTop(4);
     }
+
+    // Keyboard pinned to the bottom, so it stays put as rows are added above it.
+    if (keyboard_ != nullptr) keyboard_->setBounds(area.removeFromBottom(80));
+    keyboard_hint_.setBounds(area.removeFromBottom(20));
+    area.removeFromBottom(10);
 
     area.removeFromTop(16);
     auto buttons = area.removeFromTop(36);

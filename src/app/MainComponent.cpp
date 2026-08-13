@@ -223,7 +223,7 @@ MainComponent::MainComponent() {
     performance_view_->onExitRequested = [this] { setPerformanceMode(false); };
     addChildComponent(*performance_view_);   // built now, shown only on demand
 
-    foot_control_panel_ = std::make_unique<FootControlPanel>(engine_);
+    foot_control_panel_ = std::make_unique<FootControlPanel>(engine_, keyboard_state_);
     foot_control_panel_->onCloseRequested = [this] { setFootControlMode(false); };
     addChildComponent(*foot_control_panel_);
 

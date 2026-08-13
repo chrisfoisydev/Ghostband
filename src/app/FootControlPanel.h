@@ -28,7 +28,12 @@ namespace ghostband::app {
 /// band change, which is not something to do with an audience in the room.
 class FootControlPanel : public juce::Component, private juce::Timer {
 public:
-    explicit FootControlPanel(GhostBandAudioEngine& engine);
+    /// @param keyboardState  shared with the setup screen's keyboard, so a key pressed
+    ///        here travels the identical path a hardware pedal does. The panel needs its
+    ///        own copy because it covers the whole window: without one, the only MIDI
+    ///        source on a machine with no pedal is hidden behind the screen that asks you
+    ///        to press it.
+    FootControlPanel(GhostBandAudioEngine& engine, juce::MidiKeyboardState& keyboardState);
     ~FootControlPanel() override;
 
     void paint(juce::Graphics& g) override;
@@ -52,6 +57,11 @@ private:
     };
 
     GhostBandAudioEngine& engine_;
+    juce::MidiKeyboardState& keyboard_state_;
+    /// Present so MIDI Learn is usable with no hardware attached. Bound to the same
+    /// MidiKeyboardState as the setup screen's keyboard.
+    std::unique_ptr<juce::MidiKeyboardComponent> keyboard_;
+    juce::Label keyboard_hint_;
     std::vector<Row> rows_;
 
     juce::TextButton defaults_button_{"RESTORE DEFAULTS"};

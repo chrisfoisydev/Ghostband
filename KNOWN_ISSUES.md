@@ -366,8 +366,19 @@ recording: the header comment claiming it was "a genuine MIDI source, not a simu
 had been true when written and quietly stopped being true when foot control landed beside
 it. A shared path only stays shared if new features are added *to* it.
 
+**Design flaw found on hardware, 2026-08-13 — fixed.** The FOOT CONTROL screen is a
+full-window overlay, so it hid the on-screen keyboard: the only MIDI source on a machine
+with no pedal was behind the screen asking you to press it. MIDI Learn was unreachable
+without hardware, which defeats the point of routing the keyboard through the control path
+in the first place. The panel now carries its own keyboard, bound to the same
+`MidiKeyboardState`, so it is still the identical signal path.
+
+The pattern is the same one behind §18: a feature was made testable-without-hardware, then
+a later screen quietly took that away, because the two were built at different times and
+nobody re-checked the combination.
+
 **To close it:** build on the Mac, open FOOT CONTROL, learn each action against the
-on-screen keyboard, confirm each row lights on press. Then repeat with a real pedal on CC
+keyboard on that screen, confirm each row lights on press. Then repeat with a real pedal on CC
 and run a song end to end using only the pedal. Criterion 6 in `STAGE_READINESS.md` stays
 ⚠️ until the pedal half has happened.
 
