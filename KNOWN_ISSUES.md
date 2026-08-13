@@ -467,6 +467,11 @@ and the diagnostics line would have read `nothing mapped`, which is accurate and
 Covered by a regression test that builds a CRLF document from `serialise()` and asserts
 every binding survives.
 
+**Confirmed on hardware, 2026-08-13.** A mappings file written by a pre-fix build — and
+therefore genuinely CRLF on disk — loaded with its bindings intact. Better evidence than
+the synthetic test, because the file was malformed by the real bug rather than by a test
+helper.
+
 **Lesson worth keeping.** Two parsers, one hardened against CRLF and one not, because only
 one had a test for it. The defensive choice in `Persistence.cpp` was made on general
 principle and turned out to be load-bearing; the identical reasoning was simply not applied
@@ -504,9 +509,10 @@ still have been absent, and the obvious conclusion would have been that the firs
 not worked. Worth remembering that one symptom had two independent causes stacked behind
 it, and the second was only exposed because the first was fixed.
 
-**Still unverified:** the fix is app-layer JUCE code and has not been compiled or run. What
-`ghostband::core` does guarantee is the property it depends on — that `isLearning()` is
-true before the learn press and false after — which `MidiMappingTests` covers.
+**Confirmed on hardware, 2026-08-13.** A mapping learnt on the FOOT CONTROL screen
+survived `pkill -x GhostBand` — a hard kill that skips `shutdown()` entirely. That is the
+stronger form of the test: it proves the save happens within 20 ms of the learn rather than
+at exit, which is what matters if GhostBand ever dies mid-set.
 
 ---
 

@@ -18,7 +18,7 @@ Legend: ✅ verified by execution · ⚠️ implemented but unverified · ❌ no
 | 3 | Continuous streaming works | 🟡 | **audible, 0 underruns, 0 dropped frames** over ~2 min on M2 Pro at 17.23/40 ms; no 60-min soak |
 | 4 | MIDI chords steer generated harmony | 🟡 | **confirmed by ear** on M2 Pro via the on-screen keyboard: held chords steer the band, changes follow. Latency perceptible but musical. Hardware controller untested. |
 | 5 | Section changes work | 🟡 | **confirmed by ear** on M2 Pro: Verse<->Chorus changes sound musical, arrangement moves with the section. Single song, short run. |
-| 6 | MIDI footswitch control works | 🟡 | **MIDI Learn confirmed working on M2 Pro (2026-08-13)**: LEARN bound a key, the action fired, logged end to end. Via the on-screen keyboard — **no hardware pedal has ever been connected**, and persistence across a restart is not yet re-checked — `KNOWN_ISSUES.md` §15 |
+| 6 | MIDI footswitch control works | 🟡 | **MIDI Learn confirmed working on M2 Pro (2026-08-13)**: LEARN bound a key, the action fired, logged end to end. Mapping also **survived `pkill`**, confirming §17 and §18 against real files. Via the on-screen keyboard — **no hardware pedal has ever been connected** — `KNOWN_ISSUES.md` §15 |
 | 7 | AI mute works | 🟡 | unit-tested + wired to AI BAND; audible path confirmed (peak -12.6 dBFS, RMS -20.1), mute itself not yet A/B'd |
 | 8 | **PANIC always works** | ⚠️ | fade **unit-tested**; wired to button + Escape; app reports 32.0 ms latency; not yet confirmed audibly |
 | 9 | No persistent audio glitches | 🟡 | **0 underruns, 0 dropped frames, 0 absorbed by priming**; limiter never engaged (0.0 dB GR). No 60-min soak. |
