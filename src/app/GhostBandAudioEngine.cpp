@@ -64,9 +64,18 @@ bool GhostBandAudioEngine::routePerformanceAction(const juce::MidiMessage& messa
         consumed = midi_mappings_.isLearning()
                    || midi_mappings_.actionFor(binding) != core::PerformanceAction::None;
 
+        // A learn resolves inside handleMessage. Noting it here is the only chance to
+        // know a binding changed — the call returns None while learning, so nothing is
+        // queued and the message thread would otherwise never find out it must save.
+        const bool was_learning = midi_mappings_.isLearning();
+
         action = midi_mappings_.handleMessage(binding, pressed, now);
         displaced_action_.store(midi_mappings_.lastDisplacedAction(),
                                 std::memory_order_relaxed);
+
+        if (was_learning && !midi_mappings_.isLearning()) {
+            mappings_dirty_.store(true, std::memory_order_relaxed);
+        }
 
         if (action != core::PerformanceAction::None
             && action_queue_size_ < kActionQueueCapacity) {
@@ -493,6 +502,13 @@ void GhostBandAudioEngine::timerCallback() {
     // Footswitch presses land here rather than on the MIDI thread, where a section change
     // would mean touching the backend and the song model from a device callback.
     drainPerformanceActions();
+
+    // A mapping learnt on the MIDI thread is written here, for the same reason: the learn
+    // itself must not touch the filesystem. Within 20 ms of the press, so a performer who
+    // maps a pedal and immediately quits still keeps it.
+    if (mappings_dirty_.exchange(false, std::memory_order_relaxed)) {
+        saveMidiMappings();
+    }
 }
 
 GhostBandAudioEngine::GhostBandAudioEngine() {

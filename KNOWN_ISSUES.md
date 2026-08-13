@@ -441,3 +441,36 @@ to `MidiMapping.cpp`. When a defence is worth writing once, check whether the sa
 reaches anywhere else.
 
 Also worth keeping: this was found by *not* accepting a byte count that nearly matched.
+
+---
+
+## 18. ✅ FIXED — MIDI Learn never saved the mapping it made
+
+**Found on hardware, 2026-08-13, immediately after §17 — same symptom, different cause.**
+
+`~/Library/Application Support/GhostBand/midi-mappings.txt` did not exist after a session
+in which mappings had been touched. `saveMidiMappings()` was only reachable from
+`setMidiMappings()`, which the FOOT CONTROL screen calls for CLEAR, CLEAR ALL and RESTORE
+DEFAULTS. A learn does not go through it: the binding is made inside
+`MidiMappingSet::handleMessage` on the MIDI thread, and nothing persisted it.
+
+So the three buttons nobody uses mid-setup saved correctly, and **the one action that
+actually maps a pedal did not**.
+
+It could not simply call save inline — that is filesystem I/O on a MIDI thread, which the
+real-time rules forbid outright. Fixed with an atomic `mappings_dirty_` flag set where the
+learn resolves, and written from the existing 50 Hz timer on the message thread. The
+transition is detected by comparing `isLearning()` either side of `handleMessage`, because
+the call deliberately returns `None` during a learn — so nothing is queued and the message
+thread has no other way to find out.
+
+**Why this hid behind §17.** Both bugs produce exactly the same user-visible failure: map
+a pedal, restart, mappings gone. Fixing the CRLF parse would have looked like a complete
+fix right up until someone learnt a mapping and restarted — at which point the file would
+still have been absent, and the obvious conclusion would have been that the first fix had
+not worked. Worth remembering that one symptom had two independent causes stacked behind
+it, and the second was only exposed because the first was fixed.
+
+**Still unverified:** the fix is app-layer JUCE code and has not been compiled or run. What
+`ghostband::core` does guarantee is the property it depends on — that `isLearning()` is
+true before the learn press and false after — which `MidiMappingTests` covers.

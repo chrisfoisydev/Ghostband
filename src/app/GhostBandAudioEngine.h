@@ -338,6 +338,14 @@ private:
     std::atomic<std::uint32_t> fired_{0};
     std::atomic<core::PerformanceAction> displaced_action_{core::PerformanceAction::None};
 
+    /// Set when a MIDI Learn press changes the mappings, cleared when they are written.
+    ///
+    /// The learn happens on a MIDI thread, which must not touch the filesystem — so the
+    /// save is deferred to the 50 Hz timer on the message thread. Without this, learning
+    /// was the one route that never persisted: CLEAR and RESTORE DEFAULTS both go through
+    /// setMidiMappings and save, but the press that actually maps a pedal did not.
+    std::atomic<bool> mappings_dirty_{false};
+
     /// Intensity step per pedal press. Coarse on purpose: a foot is not a knob, and five
     /// presses should cross the useful range rather than nudge it.
     static constexpr float kIntensityPedalStep = 0.1f;
