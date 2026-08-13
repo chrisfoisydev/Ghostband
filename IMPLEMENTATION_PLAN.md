@@ -145,9 +145,9 @@ cmake --build build -j && ctest --test-dir build --output-on-failure
 | 2.3 | Prompt-slot allocation across sections (`KNOWN_ISSUES` §4) | ✅ core done, **tested** (`PromptSlotAllocator`) — 4 section slots + 2 reserved for intensity |
 | 2.4 | Wire sections to the engine: prompt blend + intensity per section | ✅ core done, **tested** (`PerformanceEngine`) — sections take all 6 slots; intensity keeps parameter terms only |
 | 2.5 | Performance Mode UI (huge section name, next preview, minimal chrome) | ✅ **works on hardware** — section changes sound musical, driven by arrow keys alone |
-| 2.6 | MIDI foot controller + MIDI Learn + persistent mappings | 🟡 core done, **tested** (`MidiMappingSet`, 33 tests); engine wiring + `FootControlPanel` + mapping file **written, not compiled** — see `KNOWN_ISSUES.md` §15 |
-| 2.7 | Setlists | 🟡 core done, **tested** (`Setlist`, `SetlistController`, 22 tests); app wiring + stage-screen set position **written, not compiled** |
-| 2.8 | Versioned persistence with migrations | 🟡 core done, **tested** (`Persistence`, 45 tests) — schema version, newer-file refusal, migration dispatch, C-locale numbers; file I/O **written, not compiled** |
+| 2.6 | MIDI foot controller + MIDI Learn + persistent mappings | 🟡 core done, **tested** (`MidiMappingSet`, 33 tests); engine wiring + `FootControlPanel` + mapping file **compile and launch**, runtime behaviour unverified — see `KNOWN_ISSUES.md` §15 |
+| 2.7 | Setlists | 🟡 core done, **tested** (`Setlist`, `SetlistController`, 22 tests); app wiring + stage-screen set position **compile and launch**, runtime behaviour unverified |
+| 2.8 | Versioned persistence with migrations | 🟡 core done, **tested** (`Persistence`, 45 tests) — schema version, newer-file refusal, migration dispatch, C-locale numbers; file I/O **compiles and launches**, never run against a real file |
 | 2.9 | Song Map harmony mode | ❌ |
 
 The prompt-slot pre-encoding strategy (`ARCHITECTURE.md` §8) is a Phase 2 prerequisite,

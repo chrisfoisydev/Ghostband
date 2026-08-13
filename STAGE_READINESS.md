@@ -18,14 +18,14 @@ Legend: ✅ verified by execution · ⚠️ implemented but unverified · ❌ no
 | 3 | Continuous streaming works | 🟡 | **audible, 0 underruns, 0 dropped frames** over ~2 min on M2 Pro at 17.23/40 ms; no 60-min soak |
 | 4 | MIDI chords steer generated harmony | 🟡 | **confirmed by ear** on M2 Pro via the on-screen keyboard: held chords steer the band, changes follow. Latency perceptible but musical. Hardware controller untested. |
 | 5 | Section changes work | 🟡 | **confirmed by ear** on M2 Pro: Verse<->Chorus changes sound musical, arrangement moves with the section. Single song, short run. |
-| 6 | MIDI footswitch control works | ⚠️ | mapping logic **tested** (33 tests: press-only, debounce, learn, theft, corrupt file); engine wiring and the FOOT CONTROL screen written but **never compiled and never driven by a pedal** — `KNOWN_ISSUES.md` §15 |
+| 6 | MIDI footswitch control works | ⚠️ | mapping logic **tested** (33 tests: press-only, debounce, learn, theft, corrupt file); engine wiring and the FOOT CONTROL screen **compile and the app launches**; no pedal press or MIDI Learn has been performed — `KNOWN_ISSUES.md` §15 |
 | 7 | AI mute works | 🟡 | unit-tested + wired to AI BAND; audible path confirmed (peak -12.6 dBFS, RMS -20.1), mute itself not yet A/B'd |
 | 8 | **PANIC always works** | ⚠️ | fade **unit-tested**; wired to button + Escape; app reports 32.0 ms latency; not yet confirmed audibly |
 | 9 | No persistent audio glitches | 🟡 | **0 underruns, 0 dropped frames, 0 absorbed by priming**; limiter never engaged (0.0 dB GR). No 60-min soak. |
 | 10 | No serious memory leak over 60 min | 🟡 | memory now measured; **1.16 GB baseline** with mrt2_small resident. 60-min trend not taken. |
 | 11 | Audio device reconnect handled gracefully | ❌ | Phase 4 |
 | 12 | Model errors do not crash the app | ⚠️ | `EngineState` error path **tested**; real MRT2 errors unobserved |
-| 13 | Songs persist | ⚠️ | format + versioning **tested** (round trip, corrupt input, truncation, locale); save/open **written, never compiled or run against a real file** |
+| 13 | Songs persist | ⚠️ | format + versioning **tested** (round trip, corrupt input, truncation, locale); save/open **compiles and the app launches**; never run against a real file |
 | 14 | Setlists persist | ⚠️ | same as 13; missing-song handling **tested**, never exercised on disk |
 | 15 | Performance Mode works without a mouse | 🟡 | **driven by arrow keys on hardware**; foot control is now written but unverified (see 6), which is what the criterion ultimately means |
 | 16 | Generated band stays instrumental where practical | ❌ | prompt policy only; unverified |

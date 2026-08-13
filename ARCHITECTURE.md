@@ -258,12 +258,12 @@ sample-accurate ramping would be false precision.
 | `core/Logging` | ✅ implemented, tested | structured, RT-thread-safe (no alloc) |
 | `core/IGenerationBackend` | ✅ interface defined | modelled on verified MRT2 API only |
 | `backend/NullBackend` | ✅ implemented, tested | honest silence; reports "no model" |
-| `backend/Mrt2Backend` | ⚠️ **written, never compiled** | macOS only; see below |
-| `app/` JUCE host | ⚠️ **written, never compiled** | macOS only; see below |
+| `backend/Mrt2Backend` | ✅ compiles and runs on M2 Pro | macOS only |
+| `app/` JUCE host | ✅ compiles and runs on M2 Pro | macOS only |
 | Songs / Sections | ✅ implemented, tested | `Song`, `SectionController`, `PerformanceEngine` |
 | Setlists | ❌ not started | Phase 2.7 |
 | MIDI harmony input | ✅ works on hardware | `MidiHarmonyState`; on-screen keyboard uses the same path |
-| Foot control / MIDI Learn | 🟡 core tested, app layer **never compiled** | `MidiMappingSet`; see `KNOWN_ISSUES.md` §15 |
+| Foot control / MIDI Learn | 🟡 core tested; app layer compiles, **never driven by a pedal** | `MidiMappingSet`; see `KNOWN_ISSUES.md` §15 |
 | Guitar Follow | ❌ not started | Phase 3, experimental |
 | Persistence | 🟡 foot mappings only | versioned schema is Phase 2.8 |
 

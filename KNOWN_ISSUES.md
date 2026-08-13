@@ -332,8 +332,9 @@ only rule, the 120 ms debounce, learn semantics, binding theft, and settings-fil
 corruption. What those tests cannot cover is everything below `core`:
 
 - No hardware MIDI foot controller has ever been connected to this project (see also §1).
-- The `GhostBandAudioEngine` wiring, `FootControlPanel`, and the mapping file have not
-  been compiled — they are macOS/JUCE code and this machine cannot build them.
+- The `GhostBandAudioEngine` wiring, `FootControlPanel`, and the mapping file now
+  **compile on the target Mac and the app launches** (2026-08-13). Nothing beyond that is
+  established: no mapping has been learnt, no action fired, no file written.
 - The threading design (MIDI thread try-lock, PANIC latched immediately, everything else
   drained at 50 Hz) is reasoned, not observed. It is the part most worth a second look on
   hardware, because a race here shows up as a missed or doubled section change under load
@@ -369,7 +370,8 @@ round-trip fidelity, schema versioning, refusal of files from a newer GhostBand,
 line-numbered parse errors, corrupt and truncated input, CRLF, comments, unknown keys,
 clamping, C-locale numbers, file-stem safety, and missing-song handling in a set.
 
-What is **not** tested, because it is JUCE code this machine cannot compile:
+The file handling **compiles and the app launches** (2026-08-13). Still untested, because
+it is JUCE code this machine cannot build and no one has yet exercised it:
 
 - `saveSongAs` / `loadSongFile` / `saveSetlist` / `loadSetlistFile` — every path that
   touches the filesystem.
