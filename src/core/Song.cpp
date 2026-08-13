@@ -18,6 +18,14 @@ const char* toString(HarmonySource s) noexcept {
     return "unknown";
 }
 
+bool parseHarmonySource(const std::string& text, HarmonySource& out) noexcept {
+    for (auto s : {HarmonySource::Midi, HarmonySource::SongMap,
+                   HarmonySource::GuitarExperimental}) {
+        if (text == toString(s)) { out = s; return true; }
+    }
+    return false;
+}
+
 const char* toDisplayString(HarmonySource s) noexcept {
     switch (s) {
         case HarmonySource::Midi:               return "MIDI";

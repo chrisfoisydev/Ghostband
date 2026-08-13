@@ -19,6 +19,12 @@ enum class HarmonySource {
 const char* toString(HarmonySource s) noexcept;
 const char* toDisplayString(HarmonySource s) noexcept;
 
+/// Inverse of `toString`. Derived from `toString` itself rather than a second switch, so
+/// the persisted spelling and the parsed spelling cannot drift apart — they already had,
+/// once, between "guitar" and "guitar_experimental".
+/// @return false if the text matches no source, leaving `out` untouched.
+bool parseHarmonySource(const std::string& text, HarmonySource& out) noexcept;
+
 /// Section transition times offered by the brief (§15). Stored as milliseconds so a
 /// future custom value needs no schema change.
 inline constexpr int kTransitionInstantMs = 0;

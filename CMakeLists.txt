@@ -79,6 +79,8 @@ add_library(ghostband_core STATIC
     src/core/PromptSlotAllocator.cpp
     src/core/PerformanceEngine.cpp
     src/core/MidiMapping.cpp
+    src/core/Setlist.cpp
+    src/core/Persistence.cpp
 )
 add_library(ghostband::core ALIAS ghostband_core)
 
