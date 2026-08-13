@@ -30,11 +30,28 @@ set(GHOSTBAND_MRT_CANDIDATES
     "$ENV{HOME}/Documents/magenta-realtime"
     "$ENV{HOME}/src/magenta-realtime")
 
-if(NOT MAGENTA_RT_DIR)
+# Detect when MAGENTA_RT_DIR is unset **or** points somewhere invalid. The invalid case
+# matters because CMake caches the variable: one bad configure leaves the wrong value in
+# build/CMakeCache.txt, and a value that is set-but-wrong would otherwise suppress
+# detection on every subsequent run until the cache is cleared by hand.
+set(ghostband_mrt_was_set "${MAGENTA_RT_DIR}")
+if(NOT MAGENTA_RT_DIR OR NOT EXISTS "${MAGENTA_RT_DIR}/core/CMakeLists.txt")
     foreach(candidate IN LISTS GHOSTBAND_MRT_CANDIDATES)
         if(EXISTS "${candidate}/core/CMakeLists.txt")
             get_filename_component(MAGENTA_RT_DIR "${candidate}" ABSOLUTE)
-            message(STATUS "GhostBand: found magenta-realtime at ${MAGENTA_RT_DIR}")
+            # Overwrite the cache entry too, or the stale value comes back next configure.
+            set(MAGENTA_RT_DIR "${MAGENTA_RT_DIR}" CACHE PATH
+                "Path to a magenta/magenta-realtime checkout" FORCE)
+
+            if(ghostband_mrt_was_set)
+                # Loud, not silent: quietly building against a different checkout than the
+                # one that was asked for would be worse than the error it replaces.
+                message(WARNING
+                    "MAGENTA_RT_DIR was '${ghostband_mrt_was_set}', which has no "
+                    "core/CMakeLists.txt. Using ${MAGENTA_RT_DIR} instead.")
+            else()
+                message(STATUS "GhostBand: found magenta-realtime at ${MAGENTA_RT_DIR}")
+            endif()
             break()
         endif()
     endforeach()
