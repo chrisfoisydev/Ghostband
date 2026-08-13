@@ -516,11 +516,15 @@ at exit, which is what matters if GhostBand ever dies mid-set.
 
 ---
 
-## 19. ⚠️ The Song Editor UI has never been compiled or used
+## 19. 🟡 The Song Editor works; some paths still unexercised
 
-`core::SongEditor` is covered by 26 tests. `SongEditorView` — the screen that drives it —
-is JUCE code this machine cannot build, and carries the usual app-layer risk plus two
-things specific to it:
+**Confirmed working on hardware, 2026-08-13.** Add a section, name it, move it, undo the
+move, save, and turn a section's band off — all behave. That clears the two risks flagged
+below, which were the ones most likely to bite:
+
+`core::SongEditor` is covered by 26 tests. `SongEditorView` is JUCE code this machine
+cannot build, and carried the usual app-layer risk plus two things specific to it — both
+now observed working rather than merely reasoned:
 
 - **The `updating_` re-entrancy guard.** `refresh()` writes into every control, and
   `TextEditor::setText` fires `onTextChange`. Without the guard each refresh would look
@@ -538,9 +542,10 @@ things specific to it:
   surprising, and it is the first thing to fix once the screen has been used.
 - No setlist editor still (`KNOWN_ISSUES.md` §16).
 
-**To close it:** open EDIT SONG, add a section, rename it, reorder it, undo, save, quit,
-reopen. Then make a song whose sections use seven distinct prompts and confirm the amber
-slot warning appears while editing rather than at save time.
+**Still unexercised:** the prompt-slot overflow warning. A song with seven distinct
+section prompts should raise an amber line naming the fix, while editing rather than at
+save time. Worth doing once, since it is the editor's only genuinely predictive feature —
+everything else reports what is, that one predicts what will stall on stage.
 
 ---
 
