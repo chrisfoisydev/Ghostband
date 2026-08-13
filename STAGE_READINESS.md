@@ -25,7 +25,7 @@ Legend: ✅ verified by execution · ⚠️ implemented but unverified · ❌ no
 | 10 | No serious memory leak over 60 min | 🟡 | memory now measured; **1.16 GB baseline** with mrt2_small resident. 60-min trend not taken. |
 | 11 | Audio device reconnect handled gracefully | ❌ | Phase 4 |
 | 12 | Model errors do not crash the app | ⚠️ | `EngineState` error path **tested**; real MRT2 errors unobserved |
-| 13 | Songs persist | ⚠️ | format + versioning **tested** (round trip, corrupt input, truncation, locale); save/open **compiles and the app launches**; never run against a real file |
+| 13 | Songs persist | 🟡 | **save confirmed on disk** (M2 Pro, 2026-08-13): `Demo-Song.ghostsong`, 655 bytes, Documents permission granted, atomic write left no temp file. **Open not yet exercised** — no quit/relaunch round trip |
 | 14 | Setlists persist | ⚠️ | same as 13; missing-song handling **tested**, never exercised on disk |
 | 15 | Performance Mode works without a mouse | 🟡 | **driven by arrow keys on hardware**; foot control is now written but unverified (see 6), which is what the criterion ultimately means |
 | 16 | Generated band stays instrumental where practical | ❌ | prompt policy only; unverified |

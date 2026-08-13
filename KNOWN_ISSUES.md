@@ -370,17 +370,20 @@ round-trip fidelity, schema versioning, refusal of files from a newer GhostBand,
 line-numbered parse errors, corrupt and truncated input, CRLF, comments, unknown keys,
 clamping, C-locale numbers, file-stem safety, and missing-song handling in a set.
 
-The file handling **compiles and the app launches** (2026-08-13). Still untested, because
-it is JUCE code this machine cannot build and no one has yet exercised it:
+**Saving works on the target Mac** (2026-08-13): SAVE SONG produced
+`~/Documents/GhostBand/Songs/Demo-Song.ghostsong`, 655 bytes, with the Documents
+permission granted and no `.writing` temp file left behind — so directory creation, the
+file-stem rule, serialisation and the atomic write are all confirmed on real hardware.
 
-- `saveSongAs` / `loadSongFile` / `saveSetlist` / `loadSetlistFile` — every path that
-  touches the filesystem.
-- The atomic write (temp file, then move into place). It exists because
-  `File::replaceWithText` truncates first, so a failure part-way through would destroy the
-  previous version of a song. That reasoning is untested.
-- Directory creation under `~/Documents/GhostBand`, and macOS's permission prompt the
-  first time an app writes to Documents. **This is the most likely first failure** and it
-  has never been seen.
+Still untested, because it is JUCE code this machine cannot build and no one has yet
+exercised it:
+
+- `loadSongFile` / `saveSetlist` / `loadSetlistFile` — the read path and both setlist
+  paths. `saveSongAs` is now confirmed; the others are not.
+- Overwriting an **existing** song. The first save had nothing to clobber, so the reason
+  the atomic write exists — `File::replaceWithText` truncates first, destroying the
+  previous version if the write fails — is still the untested half.
+- ~~Directory creation and the Documents permission prompt~~ — **confirmed working**.
 - The `FileChooser` flows, including cancellation.
 - Song resolution for a setlist: the setlist's own folder first, then the shared songs
   directory.
