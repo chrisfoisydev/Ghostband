@@ -771,3 +771,43 @@ The pattern from §23 repeated in miniature: each of these is a property of the 
 result*, not of the source, and the fallback comment in `StageType.h` even said the
 fallback had never been seen rendered. It had been sitting there, correctly flagged and
 unchecked, for two commits.
+
+---
+
+## §25 — The Song Editor's NAME field discarded renames silently
+
+**Status:** fixed, written, NOT COMPILED. Found by the save→quit→open round trip that
+`STAGE_READINESS.md` criteria 13 and 14 had been flagging as never exercised.
+
+Rename a section, press SAVE SONG, and the name reverted. The file on disk never had it.
+
+**Cause — two halves, both required.** NAME commits on Enter or focus loss rather than per
+keystroke, which is correct: `SongEditor` enforces unique section names, so a per-keystroke
+commit renames a section to "Vers 2" while the performer is still typing "Verse". The cost
+is that typed text is not in the model until one of those events fires, and clicking a
+button does not reliably move keyboard focus.
+
+1. `saveToDisk()` read `editor_.song()` without flushing the field, so it wrote the *old*
+   name.
+2. `refreshSectionFields()` then overwrote the field with the model's old name — erasing
+   the evidence that anything had been typed.
+
+Either alone would have been survivable. Together they made a silent, self-concealing data
+loss: the edit vanished, and the UI looked as though it had never happened.
+
+**Fix.** `commitPendingEdits()` flushes the field, and is called before every action that
+*reads* the model — `saveToDisk`, `applyToBand`, and `requestClose` (before `isDirty()` is
+consulted, so the DISCARD CHANGES guard cannot wave a typed rename through as "nothing to
+lose"). `refreshSectionFields()` no longer writes into a control that currently has
+keyboard focus.
+
+**This is the third instance of the same bug.** The main prompt field swallowed every edit
+on the first real run; MIDI Learn never reached disk (§18); and now this. The shape each
+time: **a deferred commit with no flush before the read.** Any control that does not commit
+per keystroke needs a flush at every point the model is read, and that rule belongs in
+review, not in three separate comments after the fact.
+
+**What core tests could not have caught.** `serialiseSong`/`deserialiseSong` round-trip a
+renamed section correctly — verified directly while diagnosing this. The defect was
+entirely in UI wiring, in the app layer, on the Mac. Consistent with every other bug found
+in this project so far.

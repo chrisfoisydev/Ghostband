@@ -51,6 +51,15 @@ private:
     /// Rewrite every control from the editor's song. Called after any change, so the
     /// screen can never disagree with the model it is showing.
     void refresh();
+
+    /// Flush the NAME field into the model.
+    ///
+    /// NAME commits on Enter or focus loss rather than per keystroke — deliberately, since
+    /// the uniqueness rule would rename a section to "Vers 2" while "Verse" is still being
+    /// typed. The cost is that typed text is not in the model until one of those happens,
+    /// and clicking a button does not reliably move keyboard focus. So every action that
+    /// *reads* the model has to flush first.
+    void commitPendingEdits();
     void refreshSectionFields();
     int selectedSection() const;
     void applyToBand();

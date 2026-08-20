@@ -331,7 +331,12 @@ void SongEditorView::refreshSectionFields() {
                                  + juce::String(editor_.sectionCount()),
                              juce::dontSendNotification);
 
-    if (name_editor_.getText() != juce::String(section->name)) {
+    // Never overwrite a field that is being typed into. refresh() runs on almost every
+    // interaction in this view, and clobbering a half-typed name is the other half of the
+    // bug above — the model write was missing, and this line then actively erased the
+    // evidence that anything had been typed at all.
+    if (!name_editor_.hasKeyboardFocus(false)
+        && name_editor_.getText() != juce::String(section->name)) {
         name_editor_.setText(section->name, juce::dontSendNotification);
     }
     if (prompt_editor_.getText() != juce::String(section->stylePrompt)) {
@@ -353,7 +358,33 @@ void SongEditorView::refreshSectionFields() {
 
 // --- Actions ---------------------------------------------------------------------------
 
+void SongEditorView::commitPendingEdits() {
+    // **This is what "the section name changed back" was.** Type a new section name, click
+    // SAVE SONG: focus loss did not fire, so the model still held the old name, saveToDisk
+    // wrote the old name, and the refresh() at the end of it then overwrote the field with
+    // that old name — the rename disappeared in front of you, and the file on disk never
+    // had it.
+    //
+    // Exactly the same shape as the bug the main prompt field hit on the first real run
+    // (see MainComponent's "three ways to apply" comment): a deferred commit with no flush
+    // before the read. Fixing it in one place rather than adding a third callback, because
+    // the rule is about *reads of the model*, not about any one control.
+    if (updating_) return;
+
+    const int index = selectedSection();
+    const auto* section = editor_.sectionAt(index);
+    if (section == nullptr) return;
+
+    const auto typed = name_editor_.getText().toStdString();
+    if (typed == section->name) return;
+
+    // A refused rename (empty, or colliding with another section) leaves the model alone;
+    // refreshSectionFields() then restores the field to what the model actually holds.
+    editor_.setSectionName(index, typed);
+}
+
 void SongEditorView::applyToBand() {
+    commitPendingEdits();
     if (!engine_.loadSong(editor_.song())) {
         file_status_label_.setColour(juce::Label::textColourId, kFault);
         file_status_label_.setText("Could not load this song into the band.",
@@ -366,6 +397,8 @@ void SongEditorView::applyToBand() {
 }
 
 void SongEditorView::saveToDisk() {
+    commitPendingEdits();
+
     juce::File written;
     const auto error = engine_.saveSongAs(editor_.song(), written);
     if (error.isNotEmpty()) {
@@ -384,6 +417,10 @@ void SongEditorView::requestClose() {
     // One confirmation, in the button itself. Losing an evening's arrangement to a stray
     // click is not worth saving a modal dialog, and a modal dialog is not worth adding to
     // an app that otherwise has none.
+    // Before isDirty() is consulted, not after: a typed-but-uncommitted rename is a change,
+    // and without this the DISCARD CHANGES guard would wave it through as "nothing to lose".
+    commitPendingEdits();
+
     if (editor_.isDirty() && !confirming_discard_) {
         confirming_discard_ = true;
         close_button_.setButtonText("DISCARD CHANGES?");
