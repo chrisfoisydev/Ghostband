@@ -558,7 +558,7 @@ void MainComponent::refreshStatus() {
     if (degraded) {
         // Same reasoning as the PANIC banner: say what stopped, then say what did not.
         warning = "BAND STOPPED - sustained audio underruns. Your guitar and vocal are "
-                  "unaffected. Press RECOVER AI when stable.";
+                  "unaffected. Press RECOVER BAND when stable.";
     }
     recover_button_.setVisible(degraded);
     warning_label_.setText(warning, juce::dontSendNotification);
@@ -617,7 +617,7 @@ void MainComponent::refreshStatus() {
       << "  changes needing encode " << juce::String((juce::int64)engine_.performance()
                                        .encodedChangeCount()) << "\n"
       << "\n"
-      << "AI intensity          " << juce::String(engine_.aiIntensityPercent()) << " %\n"
+      << "Band intensity        " << juce::String(engine_.aiIntensityPercent()) << " %\n"
       << "  drums               " << (ip.drumless ? "removed (drumless)"
                                         : juce::String("cfg ") + juce::String(ip.cfgDrums, 2)) << "\n"
       << "  style guidance      " << juce::String(ip.cfgMusicCoca, 2) << "\n"

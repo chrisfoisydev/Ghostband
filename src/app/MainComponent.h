@@ -95,7 +95,7 @@ private:
     /// Only visible while Health == Degraded. Recovery from a degraded state must be an
     /// explicit operator action (the band must not reappear mid-phrase on its own), so
     /// there has to be a control for it — without one, Degraded is a dead end.
-    juce::TextButton recover_button_{"RECOVER AI"};
+    juce::TextButton recover_button_{"RECOVER BAND"};
     juce::ToggleButton ai_band_toggle_{"BAND"};
 
     juce::TextEditor prompt_editor_;
