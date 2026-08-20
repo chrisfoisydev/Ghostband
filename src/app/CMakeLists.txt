@@ -114,6 +114,7 @@ target_sources(GhostBand PRIVATE
     GhostBandLookAndFeel.cpp
     StageFonts.cpp
     StageHeader.cpp
+    SetlistView.cpp
     SongEditorView.cpp
     GhostBandAudioEngine.cpp
     ../backend/Mrt2Backend.cpp

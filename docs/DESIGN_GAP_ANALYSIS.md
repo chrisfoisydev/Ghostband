@@ -278,3 +278,23 @@ two were conflated, and the safe, valuable half went undone.
 8. **Guitar Follow** (Phase 3) — everything in the FOLLOW screen depends on it.
 9. **Accounts / licensing / onboarding** — needs a product and legal decision first, not
    an engineering one.
+
+
+---
+
+## 9. SETLISTS — built 2026-08-20, and where it departs from the canvas
+
+The screen exists (`SetlistView`, `core::SetlistEditor`, 22 tests). Four deliberate
+departures, each because the canvas asks for something GhostBand does not know:
+
+| Canvas | GhostBand | Why |
+|---|---|---|
+| "DRAG A SONG TO REORDER" | MOVE UP / MOVE DOWN buttons | Drag is implementable, but a set is reordered at soundcheck on a trackpad, and a mis-drag that silently drops a song two places away is worse than two clicks. The hint line says what is true. |
+| `{{ t.len }}` per song, set length in the header | omitted | **GhostBand does not know how long a song is.** Sections have no duration — the performer decides when a section ends. "4:12" would be invented. |
+| "THE FOLD · 9:30PM" | omitted | Venue and start time are HOME's data, which does not exist. |
+| — | **MISSING** in fault red, per row and in the details panel | Not in the canvas. A set referencing a song no longer on disk is the most important thing this screen can say, and it has to be visible at soundcheck rather than between songs. |
+
+**Still outstanding for HOME:** venue, set time, set length, and a recently-played list.
+Set length depends on song duration, which is the same thing the setlist rows cannot show —
+so HOME cannot be built honestly without either tracking real elapsed time per song or
+letting the performer type an estimate. Neither is decided.

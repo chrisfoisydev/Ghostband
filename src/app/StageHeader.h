@@ -25,28 +25,28 @@ namespace ghostband::app {
 ///
 /// ## What is here and what is deliberately not
 ///
-/// The canvas's nav reads `HOME · SONGS · SETLISTS · PERFORM · SETUP`. GhostBand ships
-/// four of those five, because `CLAUDE.md` rule 2 forbids a control that looks live and
-/// does nothing:
+/// The canvas's nav reads `HOME · SONGS · SETLISTS · PERFORM · SETUP`. GhostBand ships four
+/// of those five, because `CLAUDE.md` rule 2 forbids a control that looks live and does
+/// nothing:
 ///
 /// - **HOME** is omitted. Its card wants a venue, a set time, a set length and a
 ///   recently-played list. GhostBand tracks none of those, and a HOME reading
 ///   "FRIDAY NIGHT SET / THE FOLD, 9:30PM" would be a screen of invented facts.
-/// - **SETLISTS** is omitted. Setlists load and advance (`SetlistController` is real and
-///   tested), but there is no setlist *screen* — no reordering, no building, no saving a
-///   set. A nav entry leading to a list you cannot edit promises an editor.
+/// - **SETLISTS** was omitted for one commit, on the grounds that a nav entry leading to a
+///   list you cannot edit promises an editor. It is here now because the editor is: see
+///   `SetlistView` and `core::SetlistEditor`.
 /// - **PEDAL** is added, because foot control is a real screen and the canvas reaches it
 ///   from onboarding rather than from the bar.
 ///
-/// Both omissions are recorded in `docs/DESIGN_GAP_ANALYSIS.md` §1 with what each would
-/// need. They are gaps in the app, not in the design.
+/// The HOME omission is recorded in `docs/DESIGN_GAP_ANALYSIS.md` with what it would need.
+/// It is a gap in the app, not in the design.
 ///
 /// The three status lamps on the right are the canvas's, unchanged: AUDIO, BAND, PEDAL.
 /// Each is driven by real state — none of them is decorative.
 class StageHeader : public juce::Component {
 public:
     /// Screens reachable from the bar. Order is display order.
-    enum class Screen { Setup, Songs, Pedal, Perform };
+    enum class Screen { Setup, Songs, Setlists, Pedal, Perform };
 
     StageHeader();
 

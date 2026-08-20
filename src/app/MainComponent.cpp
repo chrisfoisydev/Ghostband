@@ -159,10 +159,12 @@ MainComponent::MainComponent() {
                 setPerformanceMode(false);
                 setFootControlMode(false);
                 setSongEditorMode(false);
+                setSetlistMode(false);
                 break;
-            case StageHeader::Screen::Songs:   setSongEditorMode(true); break;
-            case StageHeader::Screen::Pedal:   setFootControlMode(true); break;
-            case StageHeader::Screen::Perform: setPerformanceMode(true); break;
+            case StageHeader::Screen::Songs:    setSongEditorMode(true); break;
+            case StageHeader::Screen::Setlists: setSetlistMode(true); break;
+            case StageHeader::Screen::Pedal:    setFootControlMode(true); break;
+            case StageHeader::Screen::Perform:  setPerformanceMode(true); break;
         }
     };
 
@@ -320,6 +322,11 @@ MainComponent::MainComponent() {
     song_editor_view_ = std::make_unique<SongEditorView>(engine_);
     song_editor_view_->onCloseRequested = [this] { setSongEditorMode(false); };
     addChildComponent(*song_editor_view_);
+
+    setlist_view_ = std::make_unique<SetlistView>(engine_);
+    setlist_view_->onCloseRequested = [this] { setSetlistMode(false); };
+    setlist_view_->onPerformRequested = [this] { setPerformanceMode(true); };
+    addChildComponent(*setlist_view_);
 
     device_selector_ = std::make_unique<juce::AudioDeviceSelectorComponent>(
         engine_.deviceManager(),
@@ -514,7 +521,7 @@ void MainComponent::setPerformanceMode(bool on) {
     performance_mode_ = on;
     // Leaving mapping armed behind a screen change would let the next pedal press rebind
     // something nobody is looking at.
-    if (on) { foot_control_mode_ = false; song_editor_mode_ = false; }
+    if (on) { foot_control_mode_ = false; song_editor_mode_ = false; setlist_mode_ = false; }
     applyScreenVisibility();
     if (on && performance_view_ != nullptr) performance_view_->grabKeyboardFocus();
 }
@@ -522,13 +529,26 @@ void MainComponent::setPerformanceMode(bool on) {
 void MainComponent::setFootControlMode(bool on) {
     foot_control_mode_ = on;
     if (!on) engine_.cancelMidiLearn();
-    if (on) song_editor_mode_ = false;
+    if (on) { song_editor_mode_ = false; setlist_mode_ = false; }
+    applyScreenVisibility();
+}
+
+void MainComponent::setSetlistMode(bool on) {
+    if (on && setlist_view_ != nullptr) {
+        foot_control_mode_ = false;
+        song_editor_mode_ = false;
+        // Always start from the set that is loaded, never from whatever was left here last
+        // time — same reasoning as the Song Editor.
+        setlist_view_->beginEditingCurrent();
+    }
+    setlist_mode_ = on;
     applyScreenVisibility();
 }
 
 void MainComponent::setSongEditorMode(bool on) {
     if (on && song_editor_view_ != nullptr) {
         foot_control_mode_ = false;
+        setlist_mode_ = false;
         // Always start from what is loaded, rather than whatever was left here last time.
         // Editing a stale copy and saving it would silently overwrite the current song.
         song_editor_view_->beginEditing(engine_.hasSong() ? *engine_.performance().song()
@@ -541,7 +561,8 @@ void MainComponent::setSongEditorMode(bool on) {
 void MainComponent::applyScreenVisibility() {
     // Exactly one screen is visible at a time. Everything is hidden rather than destroyed,
     // so switching is instant and nothing is reallocated mid-performance.
-    const bool setup_visible = !performance_mode_ && !foot_control_mode_ && !song_editor_mode_;
+    const bool setup_visible = !performance_mode_ && !foot_control_mode_
+                            && !song_editor_mode_ && !setlist_mode_;
 
     // Now that every setup control lives inside setup_content_, this component has exactly
     // five direct children, so visibility is stated rather than swept. The old loop hid
@@ -553,10 +574,12 @@ void MainComponent::applyScreenVisibility() {
     if (performance_view_ != nullptr) performance_view_->setVisible(performance_mode_);
     if (foot_control_panel_ != nullptr) foot_control_panel_->setVisible(foot_control_mode_);
     if (song_editor_view_ != nullptr) song_editor_view_->setVisible(song_editor_mode_);
+    if (setlist_view_ != nullptr) setlist_view_->setVisible(setlist_mode_);
 
-    header_.setActiveScreen(performance_mode_  ? StageHeader::Screen::Perform
+    header_.setActiveScreen(performance_mode_    ? StageHeader::Screen::Perform
                             : foot_control_mode_ ? StageHeader::Screen::Pedal
                             : song_editor_mode_  ? StageHeader::Screen::Songs
+                            : setlist_mode_      ? StageHeader::Screen::Setlists
                                                  : StageHeader::Screen::Setup);
 
     resized();
@@ -858,9 +881,10 @@ void MainComponent::resized() {
     if (performance_view_ != nullptr)   performance_view_->setBounds(getLocalBounds());
     if (foot_control_panel_ != nullptr) foot_control_panel_->setBounds(area);
     if (song_editor_view_ != nullptr)   song_editor_view_->setBounds(area);
+    if (setlist_view_ != nullptr)       setlist_view_->setBounds(area);
 
     setup_viewport_.setBounds(area);
-    if (performance_mode_ || foot_control_mode_ || song_editor_mode_) return;
+    if (performance_mode_ || foot_control_mode_ || song_editor_mode_ || setlist_mode_) return;
 
     // --- setup column ---------------------------------------------------------------
     // Coordinates below are relative to setup_content_, which is what the Viewport scrolls.

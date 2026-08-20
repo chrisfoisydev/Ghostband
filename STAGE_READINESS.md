@@ -25,8 +25,8 @@ Legend: ✅ verified by execution · ⚠️ implemented but unverified · ❌ no
 | 10 | No serious memory leak over 60 min | 🟡 | **flat across a 55-minute soak (2026-08-13): 1.18 GB at 16, 36 and 55 minutes.** The +20 MB over the 1.16 GB baseline was early settling, not a trend. Readout resolution bounds growth at <10 MB/20 min rather than proving zero. Ran 55:31, not the full 60 |
 | 11 | Audio device reconnect handled gracefully | ❌ | Phase 4 |
 | 12 | Model errors do not crash the app | ⚠️ | `EngineState` error path **tested**; real MRT2 errors unobserved |
-| 13 | Songs persist | 🟡 | **save confirmed on disk** (M2 Pro, 2026-08-13): `Demo-Song.ghostsong`, 655 bytes, Documents permission granted, atomic write left no temp file. **Open not yet exercised** — no quit/relaunch round trip |
-| 14 | Setlists persist | ⚠️ | same as 13; missing-song handling **tested**, never exercised on disk |
+| 13 | Songs persist | 🟡 | **round trip exercised on M2 Pro, 2026-08-20**: edit a section name, save, quit, relaunch, OPEN SONG — the rename survives. It did **not** on the first attempt: the editor discarded it silently (`KNOWN_ISSUES.md` §25), which is what the round trip was for. One song, one field, one machine |
+| 14 | Setlists persist | ⚠️ | a setlist **screen** now exists (`SetlistView`, `core::SetlistEditor`, 22 tests) so a set can be built, reordered and saved from inside the app rather than by hand-writing a file. Missing-song handling is tested in core and shown in fault red per row. **Written, never compiled or exercised on disk** — the same round trip as 13 has not been run for a set |
 | 15 | Performance Mode works without a mouse | 🟡 | **driven by arrow keys on hardware**; foot control is now written but unverified (see 6), which is what the criterion ultimately means |
 | 16 | Generated band stays instrumental where practical | ❌ | prompt policy only; unverified |
 | 17 | **No feature claims something that isn't implemented** | ✅ | enforced by `CLAUDE.md` rule 2; this file is the audit |

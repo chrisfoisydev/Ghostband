@@ -136,6 +136,26 @@ public:
     juce::String loadSetlistFile(const juce::File& file);
     juce::String saveSetlist(const core::Setlist& list, juce::File& fileWritten);
 
+    /// One song on disk, as the setlist builder needs to show it.
+    struct SongOnDisk {
+        /// File name only, not a path — this is what a `SetlistEntry` stores, so that a
+        /// setlist copied to another machine still resolves.
+        juce::String file;
+        /// Title read from the file. Falls back to the file name if it will not parse, so a
+        /// damaged song is still visible and removable rather than silently absent.
+        juce::String title;
+        /// False when the file exists but could not be parsed. Shown, never hidden.
+        bool readable = true;
+    };
+
+    /// Every song in the songs directory, sorted by title.
+    ///
+    /// Reads each file to recover its real title rather than guessing from the filename:
+    /// `toSafeFileStem` is lossy (spaces and punctuation go), so "Ghost Light (Reprise)"
+    /// would come back as "Ghost-Light-Reprise" and the performer would be picking from a
+    /// list of near-miss names. Called on demand, not on a timer.
+    std::vector<SongOnDisk> availableSongs() const;
+
     bool hasSetlist() const noexcept { return setlist_.isLoaded(); }
     const core::SetlistController& setlist() const noexcept { return setlist_; }
     std::vector<std::string> missingSongs() const { return setlist_.missingTitles(); }

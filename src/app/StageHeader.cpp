@@ -32,10 +32,11 @@ StageHeader::StageHeader() {
     // PERFORM starts disabled: MainComponent enables it when a song is loaded. Starting
     // enabled would offer the stage screen before there is a set to run on it.
     items_ = {
-        {Screen::Setup,   "SETUP",   true,  {}},
-        {Screen::Songs,   "SONGS",   true,  {}},
-        {Screen::Pedal,   "PEDAL",   true,  {}},
-        {Screen::Perform, "PERFORM", false, {}},
+        {Screen::Setup,    "SETUP",    true,  {}},
+        {Screen::Songs,    "SONGS",    true,  {}},
+        {Screen::Setlists, "SETLISTS", true,  {}},
+        {Screen::Pedal,    "PEDAL",    true,  {}},
+        {Screen::Perform,  "PERFORM",  false, {}},
     };
 }
 

@@ -9,6 +9,7 @@
 
 #include "FootControlPanel.h"
 #include "GhostBandAudioEngine.h"
+#include "SetlistView.h"
 #include "SongEditorView.h"
 #include "PerformanceView.h"
 #include "StageHeader.h"
@@ -235,6 +236,11 @@ private:
     std::unique_ptr<SongEditorView> song_editor_view_;
     bool song_editor_mode_ = false;
     void setSongEditorMode(bool on);
+
+    /// Building a set. Same ownership rules as the other overlays.
+    std::unique_ptr<SetlistView> setlist_view_;
+    bool setlist_mode_ = false;
+    void setSetlistMode(bool on);
 
     /// Show exactly one of setup / Performance Mode / foot control / song editor.
     /// Centralised because two independent show-hide passes had already made the setup

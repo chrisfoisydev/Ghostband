@@ -11,6 +11,9 @@
 #include "backend/NullBackend.h"
 #include "core/GhostBandConstants.h"
 #include "core/Logging.h"
+#include "core/Persistence.h"
+
+#include <algorithm>
 
 #include <mach/mach.h>
 
@@ -466,6 +469,37 @@ juce::String GhostBandAudioEngine::saveSetlist(const core::Setlist& list,
                             {{"name", list.name},
                              {"songs", std::to_string(list.entries.size())}});
     return {};
+}
+
+std::vector<GhostBandAudioEngine::SongOnDisk> GhostBandAudioEngine::availableSongs() const {
+    std::vector<SongOnDisk> found;
+
+    const auto dir = songsDirectory();
+    if (!dir.isDirectory()) return found;   // nothing saved yet is not an error
+
+    for (const auto& file : dir.findChildFiles(juce::File::findFiles, /*recursive*/ false,
+                                               juce::String("*") + core::kSongFileExtension)) {
+        SongOnDisk entry;
+        entry.file = file.getFileName();
+
+        core::Song song;
+        const auto result = core::deserialiseSong(file.loadFileAsString().toStdString(), song);
+        if (result.ok) {
+            entry.title = juce::String(song.title);
+        } else {
+            // Listed, not skipped. A song that will not parse is exactly the one the
+            // performer needs to see before the gig, and hiding it would mean a set that
+            // silently cannot be completed.
+            entry.title = file.getFileNameWithoutExtension();
+            entry.readable = false;
+        }
+        found.push_back(std::move(entry));
+    }
+
+    std::sort(found.begin(), found.end(), [](const SongOnDisk& a, const SongOnDisk& b) {
+        return a.title.compareIgnoreCase(b.title) < 0;
+    });
+    return found;
 }
 
 juce::String GhostBandAudioEngine::loadSetlistFile(const juce::File& file) {
