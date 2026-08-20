@@ -11,6 +11,7 @@
 #include "core/EngineState.h"
 #include "core/IGenerationBackend.h"
 #include "core/ControlLatency.h"
+#include "core/DeviceRecovery.h"
 #include "core/IntensityMacro.h"
 #include "core/MidiHarmonyState.h"
 #include "core/MidiMapping.h"
@@ -281,6 +282,24 @@ public:
     /// not resample, so this is surfaced rather than silently accepted.
     juce::String sampleRateWarning() const;
 
+    /// @name Audio device loss and recovery
+    ///
+    /// An interface being unplugged, a sleep/wake, a hub browning out — expected runtime
+    /// conditions on a stage. GhostBand reopens the device by itself and does **not**
+    /// restart the band by itself; see `core::DeviceRecovery` for why those are different
+    /// decisions. Message thread only.
+    /// @{
+    core::DeviceHealth deviceHealth() const noexcept { return device_recovery_.health(); }
+    /// One line for the performer, or empty while the device is fine.
+    juce::String deviceMessage() const { return juce::String(device_recovery_.displayReason()); }
+    /// Attempts since the device was lost — shown so a failing reconnect looks like work
+    /// in progress rather than a frozen app.
+    int deviceRetryCount() const noexcept { return device_recovery_.attempts(); }
+    /// The performer asked for the band back after the device returned. False if there was
+    /// nothing to acknowledge.
+    bool acknowledgeDeviceRestored();
+    /// @}
+
 private:
     // juce::AudioIODeviceCallback
     void audioDeviceIOCallbackWithContext(const float* const* inputChannelData,
@@ -315,6 +334,30 @@ private:
     void performAction(core::PerformanceAction action);
 
     juce::AudioDeviceManager device_manager_;
+
+    /// Retry schedule and state for a lost output device. Lives in core so the part that
+    /// has to be right under stress — the schedule — is testable off-Mac.
+    core::DeviceRecovery device_recovery_;
+    /// Set from audioDeviceError, which may be called on the audio thread. Everything that
+    /// allocates, logs or reopens a device happens on the message thread in timerCallback.
+    std::atomic<bool> device_error_pending_{false};
+    /// True while PANIC is latched because the *performer* asked for it, as opposed to
+    /// because the device vanished. Both raise the same flag in the output stage, and
+    /// without this the device recovering would quietly release a PANIC someone pressed on
+    /// purpose — the one control in the app that must never be undone by anything except a
+    /// deliberate press. Message thread only.
+    bool performer_panic_ = false;
+    /// The setup that last worked, so a reconnect can prefer the performer's interface over
+    /// whatever macOS considers the default. Written on the message thread only.
+    juce::AudioDeviceManager::AudioDeviceSetup last_good_setup_;
+    bool has_last_good_setup_ = false;
+
+    /// Called from timerCallback. Tries the remembered device first, then the default.
+    /// Blocking — hundreds of milliseconds — which is acceptable here because there is no
+    /// audio to interrupt while the device is gone.
+    void attemptDeviceReopen();
+    /// Turn a pending audio-thread error into recovery state. Message thread.
+    void servicePendingDeviceError();
     /// shared_ptr because backend ownership has to be handed across a std::function
     /// during an async load, and Mrt2Backend is neither copyable nor movable.
     /// Swaps are serialised by detaching the audio callback first — see loadModelAsync.

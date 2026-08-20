@@ -226,7 +226,12 @@ MainComponent::MainComponent() {
     setup_content_.addChildComponent(recover_button_);  // shown only while Degraded
     recover_button_.setColour(juce::TextButton::buttonColourId, kWarn);
     recover_button_.setColour(juce::TextButton::textColourOffId, juce::Colours::black);
-    recover_button_.onClick = [this] { engine_.recoverFromDegraded(); refreshStatus(); };
+    recover_button_.onClick = [this] {
+        // One button, two conditions, in priority order. A device that has come back is
+        // the more specific situation and is what the button says when both are true.
+        if (!engine_.acknowledgeDeviceRestored()) engine_.recoverFromDegraded();
+        refreshStatus();
+    };
 
     setup_content_.addAndMakeVisible(ai_band_toggle_);
     ai_band_toggle_.setColour(juce::ToggleButton::textColourId, kText);
@@ -635,7 +640,23 @@ void MainComponent::refreshStatus() {
         warning = "BAND STOPPED - sustained audio underruns. Your guitar and vocal are "
                   "unaffected. Press RECOVER BAND when stable.";
     }
-    recover_button_.setVisible(degraded);
+
+    // The device outranks everything above it. A 48 kHz notice is not worth reading while
+    // there is no output at all, and the engine error that a dropout produces describes a
+    // symptom rather than the cause.
+    const auto device_health = engine_.deviceHealth();
+    if (device_health != core::DeviceHealth::Running) {
+        warning = engine_.deviceMessage();
+        if (device_health == core::DeviceHealth::Lost && engine_.deviceRetryCount() > 0) {
+            // So a reconnect that is taking a while reads as work in progress rather than
+            // as a frozen app.
+            warning += "  (attempt " + juce::String(engine_.deviceRetryCount()) + ")";
+        }
+    }
+
+    const bool restored = device_health == core::DeviceHealth::Restored;
+    recover_button_.setVisible(degraded || restored);
+    recover_button_.setButtonText(restored ? "RESUME BAND" : "RECOVER BAND");
     warning_label_.setText(warning, juce::dontSendNotification);
 
     // The banner's row has no height when there is nothing to say, so its appearance and
@@ -828,12 +849,26 @@ bool MainComponent::updateRigRows() {
                    running ? "PLAYING" : "READY", running ? kOk : kDim};
     }
 
-    // AUDIO — the two numbers that decide whether the engine can keep up.
-    next[2] = {"AUDIO",
-               juce::String(snap.sampleRate, 0) + " Hz   "
-                   + juce::String(static_cast<int>(snap.blockSize)) + " samples",
-               engine_.sampleRateWarning().isEmpty() ? "OK" : "CHECK",
-               engine_.sampleRateWarning().isEmpty() ? kOk : kWarn};
+    // AUDIO — the device first, then the two numbers that decide whether the engine can
+    // keep up. A row reading "48000 Hz  512 samples / OK" while the interface is unplugged
+    // would be true about the last device and useless about this one.
+    switch (engine_.deviceHealth()) {
+        case core::DeviceHealth::Lost:
+            next[2] = {"AUDIO", "device disconnected - reconnecting",
+                       juce::String(core::toDisplayString(core::DeviceHealth::Lost)), kFault};
+            break;
+        case core::DeviceHealth::Restored:
+            next[2] = {"AUDIO", "device back - band waiting to resume",
+                       juce::String(core::toDisplayString(core::DeviceHealth::Restored)), kWarn};
+            break;
+        case core::DeviceHealth::Running:
+            next[2] = {"AUDIO",
+                       juce::String(snap.sampleRate, 0) + " Hz   "
+                           + juce::String(static_cast<int>(snap.blockSize)) + " samples",
+                       engine_.sampleRateWarning().isEmpty() ? "OK" : "CHECK",
+                       engine_.sampleRateWarning().isEmpty() ? kOk : kWarn};
+            break;
+    }
 
     // MIDI — the on-screen keyboard is a genuine MIDI source, so "none" would be wrong.
     if (engine_.anyMidiDeviceConnected()) {

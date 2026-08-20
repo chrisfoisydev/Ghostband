@@ -61,7 +61,13 @@ PerformanceView::PerformanceView(GhostBandAudioEngine& engine) : engine_(engine)
         repaint();
     };
     panic_button_.onClick = [this] {
-        if (engine_.isPanicked()) engine_.clearPanic(); else engine_.panic();
+        // A device that has come back is the more specific situation, so it is handled
+        // first; acknowledgeDeviceRestored returns false when there is nothing to resume,
+        // which leaves the ordinary PANIC toggle untouched.
+        if (!engine_.acknowledgeDeviceRestored()) {
+            if (engine_.isPanicked()) engine_.clearPanic();
+            else engine_.panic();
+        }
         repaint();
     };
     exit_button_.onClick = [this] { if (onExitRequested) onExitRequested(); };
@@ -77,7 +83,10 @@ PerformanceView::~PerformanceView() { stopTimer(); }
 void PerformanceView::timerCallback() {
     // RESUME rather than PANIC once it has fired, from the design. A latched PANIC with a
     // button still reading "PANIC" gives the performer no visible way back.
-    const auto* wanted = engine_.isPanicked() ? "RESUME" : "PANIC";
+    const auto* wanted =
+        engine_.deviceHealth() == core::DeviceHealth::Restored ? "RESUME"
+        : engine_.isPanicked()                                 ? "RESUME"
+                                                               : "PANIC";
     if (panic_button_.getButtonText() != wanted) panic_button_.setButtonText(wanted);
 
     repaint();
@@ -342,6 +351,29 @@ void PerformanceView::paint(juce::Graphics& g) {
     drawBandRow(g, area.removeFromBottom(72));
     area.removeFromBottom(10);
     drawFollowingRow(g, area.removeFromBottom(66));
+
+    // The device outranks PANIC on this screen. Both leave the band silent, but only one
+    // of them is something the performer can fix by pressing the button in front of them —
+    // showing "BAND STOPPED / press RESUME" while the interface is unplugged would send
+    // them to the wrong control in the worst possible thirty seconds.
+    const auto device_health = engine_.deviceHealth();
+    if (device_health != core::DeviceHealth::Running) {
+        auto banner = getLocalBounds().reduced(40, 28).removeFromBottom(160);
+        const bool lost = device_health == core::DeviceHealth::Lost;
+
+        g.setColour(lost ? kStagePanic : kStageWarn);
+        g.setFont(stageFont(44.0f));
+        g.drawText(lost ? "NO AUDIO OUTPUT" : "AUDIO IS BACK",
+                   banner.removeFromTop(56), juce::Justification::centred);
+
+        g.setColour(kStageText);
+        g.setFont(labelFont(16.0f));
+        // Same shape as the PANIC banner: what stopped, then what did not, then what to do.
+        g.drawText(lost ? "YOUR GUITAR AND VOCAL ARE CLEAR - RECONNECTING"
+                        : "PRESS RESUME WHEN YOU WANT THE BAND",
+                   banner.removeFromTop(34), juce::Justification::centred);
+        return;
+    }
 
     if (engine_.isPanicked()) {
         // Unmissable. If the band is silent because of PANIC, that must never be a

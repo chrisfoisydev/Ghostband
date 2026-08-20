@@ -592,6 +592,85 @@ void GhostBandAudioEngine::timerCallback() {
     if (mappings_dirty_.exchange(false, std::memory_order_relaxed)) {
         saveMidiMappings();
     }
+
+    // Device loss reported from the audio thread becomes recovery state here, where
+    // allocating and logging are allowed.
+    servicePendingDeviceError();
+
+    if (device_recovery_.shouldRetryNow(static_cast<std::int64_t>(now))) {
+        attemptDeviceReopen();
+    }
+}
+
+void GhostBandAudioEngine::servicePendingDeviceError() {
+    if (!device_error_pending_.exchange(false, std::memory_order_relaxed)) return;
+
+    // Ask rather than assume. A stop with a device still open is a device *change* — the
+    // performer picking a different output in the selector — and treating that as a
+    // failure would start a retry loop against a device that is working fine.
+    if (device_manager_.getCurrentAudioDevice() != nullptr) return;
+
+    const auto now = static_cast<std::int64_t>(juce::Time::getMillisecondCounterHiRes());
+    const bool was_lost = device_recovery_.health() == core::DeviceHealth::Lost;
+    device_recovery_.noteLost("audio device closed or reported an error", now);
+
+    if (!was_lost) {
+        Logger::instance().error(
+            LogCategory::Audio, "audio device lost - reconnecting",
+            {{"last_good_device", has_last_good_setup_
+                                      ? last_good_setup_.outputDeviceName.toStdString()
+                                      : std::string("none")}});
+    }
+}
+
+void GhostBandAudioEngine::attemptDeviceReopen() {
+    const auto now = static_cast<std::int64_t>(juce::Time::getMillisecondCounterHiRes());
+
+    juce::String error;
+    if (has_last_good_setup_) {
+        // Prefer the interface that was working. `true` = treat the named device as a
+        // hard requirement rather than a hint, so a failure here is a real "still gone"
+        // rather than a silent fallback onto the built-in output.
+        error = device_manager_.setAudioDeviceSetup(last_good_setup_, true);
+    } else {
+        error = device_manager_.initialiseWithDefaultDevices(0, 2);
+    }
+
+    if (error.isEmpty() && device_manager_.getCurrentAudioDevice() == nullptr) {
+        error = "no device opened";
+    }
+
+    if (error.isNotEmpty()) {
+        device_recovery_.noteRetryFailed(now);
+        // Logged only occasionally: at the 8 s cap this would otherwise write a line every
+        // 8 seconds for the rest of the night.
+        if (device_recovery_.attempts() <= 3 || device_recovery_.attempts() % 20 == 0) {
+            Logger::instance().warn(LogCategory::Audio, "audio device reconnect failed",
+                                    {{"attempt", std::to_string(device_recovery_.attempts())},
+                                     {"error", error.toStdString()}});
+        }
+        return;
+    }
+
+    device_recovery_.noteRetrySucceeded();
+    Logger::instance().info(LogCategory::Audio, "audio device reconnected - band still silent",
+                            {{"attempts", std::to_string(device_recovery_.attempts())}});
+}
+
+bool GhostBandAudioEngine::acknowledgeDeviceRestored() {
+    if (!device_recovery_.acknowledgeRestored()) return false;
+
+    // The band was faded out by the device-loss panic, and clearing that is what the
+    // performer is asking for. But if they had *also* pressed PANIC — or pressed it during
+    // the dropout — that latch is theirs and only another deliberate press releases it.
+    // Both causes raise the same flag in the output stage, so without this check
+    // recovering an interface would silently un-silence a band someone had killed on
+    // purpose. PANIC is the one control that must never be undone as a side effect.
+    if (!performer_panic_) output_stage_.clearPanic();
+
+    Logger::instance().info(LogCategory::Audio, "band resumed after device recovery",
+                            {{"performer_panic_held", performer_panic_ ? "yes" : "no"}});
+    return true;
 }
 
 GhostBandAudioEngine::GhostBandAudioEngine() {
@@ -668,6 +747,20 @@ void GhostBandAudioEngine::audioDeviceAboutToStart(juce::AudioIODevice* device) 
                              {"sample_rate", std::to_string(sr)},
                              {"block", std::to_string(block)}});
 
+    // Remember the setup that actually worked. A reconnect should come back on the
+    // performer's interface, not on whatever macOS has decided is the default while it was
+    // unplugged — coming back on the laptop speakers mid-set would put the band into the
+    // room instead of the PA.
+    last_good_setup_ = device_manager_.getAudioDeviceSetup();
+    has_last_good_setup_ = true;
+
+    // Only a *clean* start clears the lost state. A start that happened because
+    // attemptDeviceReopen succeeded goes to Restored instead, and is set there — the band
+    // stays silent until asked for.
+    if (device_recovery_.health() == core::DeviceHealth::Running) {
+        device_recovery_.noteRunning();
+    }
+
     if (sr != static_cast<double>(core::kSampleRate)) {
         Logger::instance().warn(LogCategory::Audio,
                                 "device is not at 48 kHz - MRT2 output will be mis-pitched",
@@ -677,15 +770,31 @@ void GhostBandAudioEngine::audioDeviceAboutToStart(juce::AudioIODevice* device) 
 
 void GhostBandAudioEngine::audioDeviceStopped() {
     Logger::instance().info(LogCategory::Audio, "audio device stopped");
+
+    // A stop is ambiguous: it happens both when the performer changes device in the
+    // selector and when the interface is yanked. Distinguishing them here would be a
+    // guess, so this only raises the flag and timerCallback decides on the message thread,
+    // where it can actually ask whether a device is still open.
+    device_error_pending_.store(true, std::memory_order_relaxed);
 }
 
 void GhostBandAudioEngine::audioDeviceError(const juce::String& errorMessage) {
     // An expected runtime condition, not an exceptional one: interfaces get unplugged.
-    // Fade the AI out so a half-configured device cannot emit noise, and let the
-    // performer carry on — their voice and guitar never routed through us anyway.
-    Logger::instance().error(LogCategory::Audio, "audio device error",
-                             {{"error", errorMessage.toStdString()}});
+    // Fade the AI out so a half-configured device cannot emit noise, and let the performer
+    // carry on — their voice and guitar never routed through us anyway.
+    //
+    // **This may be called on the audio thread.** JUCE does not promise otherwise, and the
+    // project rule is absolute: no allocation, no logging, no locks. So the two things
+    // done here are the two that are safe — panic() is arithmetic on atomics, and setting
+    // a flag is a relaxed store. The previous version logged from here, which allocated a
+    // std::string and took the sink's mutex on what may be a real-time thread.
+    //
+    // The cost is the verbatim message: it cannot be carried across without allocating.
+    // The message thread logs the device state instead, which names the device and says
+    // whether it is actually gone — more useful at soundcheck than a CoreAudio code.
+    juce::ignoreUnused(errorMessage);
     output_stage_.panic();
+    device_error_pending_.store(true, std::memory_order_relaxed);
 }
 
 void GhostBandAudioEngine::audioDeviceIOCallbackWithContext(
@@ -815,6 +924,7 @@ void GhostBandAudioEngine::panic() {
     // 1. Our fade. This is the guarantee: it gates audio we already hold, so it works
     //    even if the MRT2 inference thread is wedged.
     output_stage_.panic();
+    performer_panic_ = true;
     Logger::instance().warn(LogCategory::Panic, "PANIC engaged");
 
     // 2. Belt and braces, best-effort, off the critical path.
@@ -824,6 +934,7 @@ void GhostBandAudioEngine::panic() {
 
 void GhostBandAudioEngine::clearPanic() {
     output_stage_.clearPanic();
+    performer_panic_ = false;
     backend_->setMute(false);
     Logger::instance().info(LogCategory::Panic, "PANIC released");
 }

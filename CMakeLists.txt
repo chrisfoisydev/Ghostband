@@ -82,6 +82,7 @@ add_library(ghostband_core STATIC
     src/core/Setlist.cpp
     src/core/Persistence.cpp
     src/core/SongEditor.cpp
+    src/core/DeviceRecovery.cpp
     src/core/SetlistEditor.cpp
 )
 add_library(ghostband::core ALIAS ghostband_core)

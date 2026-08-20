@@ -811,3 +811,54 @@ review, not in three separate comments after the fact.
 renamed section correctly — verified directly while diagnosing this. The defect was
 entirely in UI wiring, in the app layer, on the Mac. Consistent with every other bug found
 in this project so far.
+
+
+---
+
+## §26 — Audio device recovery exists but has never lost a device
+
+**Status:** written 2026-08-20, core tested, **app path unexercised**. Impact: unknown until
+someone unplugs an interface mid-song, which is exactly the test that has not been run.
+
+Until now, an audio device disappearing put GhostBand into a state it could not leave:
+`audioDeviceError` faded the band out and stopped there. Correct as far as it went, and a
+dead app for the rest of the night.
+
+**What now happens.** `core::DeviceRecovery` schedules reconnection attempts at 400 ms,
+800 ms, 1.6 s, 3.2 s, 6.4 s, then every 8 s indefinitely — eight attempts inside the first
+40 seconds, and one every 8 s for as long as the set lasts. It never gives up by default,
+because a recovery loop that stops after five tries has decided the gig is over.
+
+**The decision worth arguing about.** A successful reconnect lands in `Restored`, not
+`Running`: the device comes back automatically, the **band does not**. Restoring output is
+safe — without a device there is no output at all, so reopening one cannot surprise anyone.
+Restarting the accompaniment is not: the performer has kept singing through the dropout, and
+a band reappearing mid-phrase is the failure this project refuses to ship. It mirrors how
+`Health::Degraded` already requires an explicit RECOVER BAND.
+
+**Two traps found while wiring it, both worth keeping in mind elsewhere:**
+
+1. **`audioDeviceError` may be called on the audio thread.** JUCE does not promise
+   otherwise. The previous implementation logged from there, which allocates a
+   `std::string` and takes the log sink's mutex — a real-time violation that had been
+   sitting in an error path since Phase 0, where it would fire exactly when the machine was
+   least able to afford it. It now sets an atomic flag and calls `panic()`, both lock-free,
+   and the message thread does the rest. The cost is the verbatim CoreAudio message, which
+   cannot cross that boundary without allocating.
+
+2. **PANIC has two causes and one flag.** A device-loss fade and a deliberate PANIC both
+   raise `AiOutputStage::isPanicked()`. Without `performer_panic_`, acknowledging a device
+   recovery would silently release a PANIC someone had pressed on purpose — the one control
+   in the app that must never be undone as a side effect of anything.
+
+**What has NOT been tested:** everything above the core state machine. No interface has been
+unplugged, no sleep/wake, no sample-rate change from another app, no hub power cycle. The
+retry schedule is tested; whether `setAudioDeviceSetup` actually reopens a returning USB
+interface on macOS is not. The `STAGE_READINESS.md` entry says ⚠️, not 🟡, for that reason.
+
+**How to test it** (needs hardware): start the band through a USB interface, unplug it
+mid-song, confirm the stage screen reads `NO AUDIO OUTPUT / YOUR GUITAR AND VOCAL ARE CLEAR
+- RECONNECTING` and that your own signal is genuinely unaffected. Plug it back in. Confirm
+it comes back **on that interface and not the laptop speakers**, that the banner changes to
+`AUDIO IS BACK`, and that the band stays silent until RESUME is pressed. Then repeat with
+PANIC pressed first, and confirm RESUME does not release it.
