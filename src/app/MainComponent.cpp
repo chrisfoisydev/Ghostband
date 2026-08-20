@@ -141,6 +141,13 @@ void MainComponent::makeDanger(juce::TextButton& button) {
 MainComponent::MainComponent() {
     const juce::String audio_error = engine_.initialise();
 
+    // Numeric month, not "%d %b": strftime's abbreviated month is locale-dependent and can
+    // be non-ASCII, which this UI renders as mojibake (see the note at the top of the file).
+    build_stamp_ = "BUILD "
+                 + juce::File::getSpecialLocation(juce::File::currentExecutableFile)
+                       .getLastModificationTime()
+                       .formatted("%Y-%m-%d %H:%M");
+
     // Persistent chrome first. The nav is the design's shell; everything else hangs inside
     // it. HOME and SETLISTS are deliberately absent — see StageHeader.h for why.
     addAndMakeVisible(header_);
@@ -609,7 +616,9 @@ void MainComponent::refreshStatus() {
     // The numbers this spike exists to produce. Anything unmeasured says so explicitly
     // rather than showing a plausible-looking zero.
     juce::String d;
-    d << "Model                 " << snap.modelName << "\n"
+    d << "Build                 " << build_stamp_.fromFirstOccurrenceOf(" ", false, false)
+                                  << "\n"
+      << "Model                 " << snap.modelName << "\n"
       << "State                 " << toString(state) << "\n"
       << "Streaming             " << (state == core::EngineState::Running ? "Active" : "Stopped") << "\n"
       << "Prompt                " << promptStatusText(engine_.promptStatus()) << "\n"
@@ -718,6 +727,10 @@ void MainComponent::paintSetup(juce::Graphics& g) {
     g.setColour(kBright);
     g.setFont(displayFont(static_cast<float>(title_area_.getHeight())));
     g.drawText("YOUR RIG", title_area_, juce::Justification::centredLeft);
+
+    // Right-aligned on the title's baseline row, in the quietest colour on the screen.
+    drawTrackedCaps(g, build_stamp_, title_area_, kKicker, 10.0f, 0.18f,
+                    juce::Justification::centredRight);
 
     for (const auto& [text, area] : kickers_) {
         drawTrackedCaps(g, text, area, kKicker, 11.0f, 0.22f);

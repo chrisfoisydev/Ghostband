@@ -111,6 +111,16 @@ private:
     /// Refresh the rig list from engine state. Returns true if anything changed, so the
     /// 10 Hz timer does not repaint a tall scrolling component that has not moved.
     bool updateRigRows();
+
+    /// When the running binary was linked, read from the executable's own timestamp.
+    ///
+    /// On screen because "it looks exactly the same" has two causes that need opposite
+    /// responses - the change did not land, or the change did not run - and three rounds
+    /// were spent not knowing which. `moreThanOneInstanceAllowed()` is false, so `open`
+    /// silently focuses a stale instance (KNOWN_ISSUES.md §20), and a failed build leaves
+    /// the previous binary in place and runnable. The executable's mtime cannot lie about
+    /// either. Stage hardware shows its firmware version for the same reason.
+    juce::String build_stamp_;
     void paintSetup(juce::Graphics& g);
     /// Give a button the canvas's inverted or destructive treatment. See StageChrome.h.
     static void makePrimary(juce::TextButton& button);
