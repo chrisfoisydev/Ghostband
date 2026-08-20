@@ -32,13 +32,27 @@ PerformanceView::PerformanceView(GhostBandAudioEngine& engine) : engine_(engine)
         b.setColour(juce::TextButton::textColourOffId, fg);
     };
 
-    styleButton(previous_button_, juce::Colour{0xff1c1f23}, kStageText);
-    styleButton(next_button_, juce::Colour{0xff1c1f23}, kStageText);
+    styleButton(previous_button_, kPanel, kStageText);
+    styleButton(next_button_, kPanel, kStageText);
+    styleButton(less_button_, kPanel, kStageText);
+    styleButton(more_button_, kPanel, kStageText);
     styleButton(panic_button_, kStagePanic, juce::Colours::white);
     styleButton(exit_button_, juce::Colour{0xff14171a}, kStageDim);
 
     previous_button_.onClick = [this] { engine_.previousSection(); repaint(); };
     next_button_.onClick = [this] { engine_.nextSection(); repaint(); };
+
+    // Same step the pedal uses, so the button and the footswitch move the band by the
+    // same amount. A control that behaves differently depending on how it was reached is
+    // exactly the drift the single-entry-point rule exists to prevent.
+    less_button_.onClick = [this] {
+        engine_.setAiIntensity(engine_.aiIntensity() - 0.1f);
+        repaint();
+    };
+    more_button_.onClick = [this] {
+        engine_.setAiIntensity(engine_.aiIntensity() + 0.1f);
+        repaint();
+    };
     panic_button_.onClick = [this] {
         if (engine_.isPanicked()) engine_.clearPanic(); else engine_.panic();
         repaint();
@@ -53,7 +67,45 @@ PerformanceView::PerformanceView(GhostBandAudioEngine& engine) : engine_(engine)
 
 PerformanceView::~PerformanceView() { stopTimer(); }
 
-void PerformanceView::timerCallback() { repaint(); }
+void PerformanceView::timerCallback() {
+    // RESUME rather than PANIC once it has fired, from the design. A latched PANIC with a
+    // button still reading "PANIC" gives the performer no visible way back.
+    const auto* wanted = engine_.isPanicked() ? "RESUME" : "PANIC";
+    if (panic_button_.getButtonText() != wanted) panic_button_.setButtonText(wanted);
+
+    repaint();
+}
+
+void PerformanceView::visibilityChanged() {
+    if (isVisible()) rebuildPedalLegend();
+}
+
+void PerformanceView::rebuildPedalLegend() {
+    // Only the actions worth a glance mid-song, in the order a pedal is usually laid out.
+    static const core::PerformanceAction kShown[] = {
+        core::PerformanceAction::PreviousSection,
+        core::PerformanceAction::NextSection,
+        core::PerformanceAction::IntensityDown,
+        core::PerformanceAction::IntensityUp,
+        core::PerformanceAction::Panic,
+    };
+
+    const auto mappings = engine_.midiMappings();
+    juce::String legend;
+
+    for (auto action : kShown) {
+        const auto binding = mappings.bindingFor(action);
+        if (!binding.isValid()) continue;   // unmapped actions are omitted, not faked
+
+        if (legend.isNotEmpty()) legend += "   ";
+        legend += (binding.type == core::MidiBinding::Type::Note ? "NOTE " : "CC ");
+        legend += juce::String(binding.number);
+        legend += " ";
+        legend += core::toDisplayString(action);
+    }
+
+    pedal_legend_ = legend.isEmpty() ? juce::String("NO PEDAL MAPPED") : legend;
+}
 
 bool PerformanceView::keyPressed(const juce::KeyPress& key) {
     // Every action reachable without the trackpad. Foot control maps onto these same
@@ -113,6 +165,12 @@ void PerformanceView::drawSectionBlock(juce::Graphics& g, juce::Rectangle<int> a
 
     area.removeFromTop(4);
 
+    // "NOW" from the design. One word, but it turns a bare name into an answer to the
+    // question the performer is actually asking when they glance down.
+    g.setColour(kStageDim);
+    g.setFont(stageFont(20.0f, false));
+    g.drawText("NOW", area.removeFromTop(22), juce::Justification::centredLeft);
+
     // The one thing that must be readable across a stage.
     //
     // A setlist entry whose file is missing has no sections to show. Saying so in the
@@ -128,25 +186,6 @@ void PerformanceView::drawSectionBlock(juce::Graphics& g, juce::Rectangle<int> a
                area.removeFromTop(110), juce::Justification::centredLeft);
 
     area.removeFromTop(10);
-
-    // AI state and intensity, on one line, large enough to read at a glance.
-    auto row = area.removeFromTop(40);
-    const bool audible = engine_.isAiBandOn()
-                      && (!perf.hasSong() || perf.currentSectionAiEnabled());
-
-    g.setColour(audible ? kStageOk : kStageDim);
-    g.fillEllipse(static_cast<float>(row.getX()), static_cast<float>(row.getY() + 12), 14.0f, 14.0f);
-
-    g.setColour(kStageText);
-    g.setFont(stageFont(30.0f));
-    g.drawText(juce::String("BAND  ") + (audible ? "ON" : "OFF"),
-               row.withTrimmedLeft(26), juce::Justification::centredLeft);
-
-    g.setColour(kStageDim);
-    g.drawText(juce::String(perf.intensity().percent()) + " %",
-               row, juce::Justification::centredRight);
-
-    area.removeFromTop(14);
 
     // Next section preview. Absent at the end of the song rather than wrapping — a
     // surprise return to the top mid-set is worse than showing nothing.
@@ -171,6 +210,67 @@ void PerformanceView::drawSectionBlock(juce::Graphics& g, juce::Rectangle<int> a
                        ? "THEN: " + juce::String(next_song->cachedTitle).toUpperCase()
                        : juce::String("END OF SET"),
                    area.removeFromTop(30), juce::Justification::centredLeft);
+    }
+}
+
+void PerformanceView::drawFollowingRow(juce::Graphics& g, juce::Rectangle<int> area) {
+    // What the band is following, on the stage screen rather than only in setup. This is
+    // the product thesis made visible: if the performer cannot see what GhostBand thinks
+    // they are playing, they cannot tell a wrong chord from a slow one.
+    //
+    // The design also shows "STRONG SIGNAL" beside this. That is guitar-follow confidence,
+    // which does not exist (Phase 3), so it is deliberately absent rather than faked.
+    const auto sounding = engine_.harmony().soundingNotes();
+    const juce::String chord(core::nameChord(sounding));
+
+    g.setColour(kStageDim);
+    g.setFont(stageFont(20.0f, false));
+    g.drawText("FOLLOWING", area.removeFromTop(24), juce::Justification::centredLeft);
+
+    g.setColour(sounding.empty() ? kStageDim : kStageText);
+    g.setFont(stageFont(38.0f));
+    g.drawText(sounding.empty() ? juce::String("-") : chord, area,
+               juce::Justification::centredLeft);
+}
+
+void PerformanceView::drawBandRow(juce::Graphics& g, juce::Rectangle<int> area) {
+    const auto& perf = engine_.performance();
+    const bool audible = engine_.isAiBandOn()
+                      && (!perf.hasSong() || perf.currentSectionAiEnabled());
+
+    auto label_row = area.removeFromTop(24);
+    g.setColour(kStageDim);
+    g.setFont(stageFont(20.0f, false));
+    g.drawText("BAND", label_row, juce::Justification::centredLeft);
+    g.drawText("BAND VOLUME  " + juce::String(engine_.outputLevelDb(), 1) + " dB",
+               label_row, juce::Justification::centredRight);
+
+    auto state_row = area.removeFromTop(44);
+    g.setColour(audible ? kStageOk : kStageDim);
+    g.fillEllipse(static_cast<float>(state_row.getX()),
+                  static_cast<float>(state_row.getCentreY() - 7), 14.0f, 14.0f);
+
+    g.setColour(kStageText);
+    g.setFont(stageFont(34.0f));
+    g.drawText(audible ? "ON" : "OFF", state_row.withTrimmedLeft(26),
+               juce::Justification::centredLeft);
+
+    // SPARSE <-> FULL, drawn as a bar rather than a percentage. "68 %" is a number to
+    // decode; a bar is a position to glance at, which is all there is time for mid-song.
+    auto bar = state_row.removeFromRight(state_row.getWidth() * 2 / 3).reduced(0, 14);
+    g.setColour(kStageDim);
+    g.setFont(stageFont(14.0f, false));
+    g.drawText("SPARSE", bar.removeFromLeft(58), juce::Justification::centredLeft);
+    g.drawText("FULL", bar.removeFromRight(40), juce::Justification::centredRight);
+
+    const auto track = bar.reduced(8, 5).toFloat();
+    g.setColour(kPanelRaised);
+    g.fillRoundedRectangle(track, 3.0f);
+
+    const float fill = juce::jlimit(0.0f, 1.0f, perf.intensity().intensity());
+    if (fill > 0.0f) {
+        g.setColour(audible ? kStageOk : kStageDim);
+        g.fillRoundedRectangle(track.withWidth(track.getWidth() * fill), 3.0f);
     }
 }
 
@@ -218,11 +318,23 @@ void PerformanceView::paint(juce::Graphics& g) {
     g.fillAll(kStageBg);
 
     auto area = getLocalBounds().reduced(40, 28);
+    area.removeFromTop(34);          // header row, occupied by EXIT
 
-    drawSectionBlock(g, area.removeFromTop(320));
+    drawSectionBlock(g, area.removeFromTop(300));
 
-    // Status lives at the bottom, out of the glance path of the section name.
-    drawStatusRow(g, area.removeFromBottom(30));
+    // Status and the pedal legend live at the bottom, out of the glance path of the
+    // section name — which is the only thing on this screen meant to be read at distance.
+    drawStatusRow(g, area.removeFromBottom(28));
+
+    g.setColour(kStageDim);
+    g.setFont(stageFont(15.0f, false));
+    g.drawText(pedal_legend_, area.removeFromBottom(22), juce::Justification::centredLeft);
+
+    area.removeFromBottom(96);       // the button row, laid out in resized()
+
+    drawBandRow(g, area.removeFromBottom(72));
+    area.removeFromBottom(10);
+    drawFollowingRow(g, area.removeFromBottom(66));
 
     if (engine_.isPanicked()) {
         // Unmissable. If the band is silent because of PANIC, that must never be a
@@ -250,14 +362,21 @@ void PerformanceView::resized() {
     auto area = getLocalBounds().reduced(40, 28);
     exit_button_.setBounds(area.removeFromTop(34).removeFromRight(120));
 
-    auto controls = area.removeFromBottom(150);
-    controls.removeFromBottom(40);   // leave room for the status row
+    // Must mirror paint()'s bottom-up order exactly, or the buttons land on the readouts.
+    area.removeFromBottom(28);       // status row
+    area.removeFromBottom(22);       // pedal legend
+    auto controls = area.removeFromBottom(96);
 
-    // Big targets. On stage these are hit in a hurry, or by someone not looking.
-    panic_button_.setBounds(controls.removeFromRight(220).reduced(6));
-    const int half = controls.getWidth() / 2;
-    previous_button_.setBounds(controls.removeFromLeft(half).reduced(6));
-    next_button_.setBounds(controls.reduced(6));
+    // Big targets. On stage these are hit in a hurry, or by someone not looking. PANIC
+    // keeps the right edge to itself so a mis-aimed grab for NEXT cannot reach it.
+    panic_button_.setBounds(controls.removeFromRight(200).reduced(6));
+    controls.removeFromRight(24);    // a deliberate gap, not spacing
+
+    const int quarter = controls.getWidth() / 4;
+    previous_button_.setBounds(controls.removeFromLeft(quarter).reduced(6));
+    next_button_.setBounds(controls.removeFromLeft(quarter).reduced(6));
+    less_button_.setBounds(controls.removeFromLeft(quarter).reduced(6));
+    more_button_.setBounds(controls.reduced(6));
 }
 
 } // namespace ghostband::app

@@ -214,7 +214,10 @@ Independent of any feature work:
 1. **Palette and typography.** Contained, no functionality implied. *(done)*
 2. **Failure and PANIC copy.** Pure improvement to the most important screen.
 3. **Rename to the design's vocabulary** — BAND INTENSITY, BAND VOLUME, FOLLOW RESPONSE.
-4. **Restructure Performance Mode** to the design's stage layout. Nearly all real state.
+4. ~~**Restructure Performance Mode**~~ *(done — NOW label, FOLLOWING/chord moved onto the
+   stage screen, BAND state with a SPARSE↔FULL bar, LESS/MORE BAND buttons, a pedal legend
+   built from real bindings, RESUME on a latched PANIC. `STRONG SIGNAL` deliberately
+   omitted — it is guitar-follow confidence and does not exist.)*
 5. **Decide the parts-chips question (§1)** before touching the song builder.
 6. **Setlist editor** — the largest genuinely-buildable gap, and criterion 14 needs it.
 7. **Phase 4**: engine auto-restart with a count, device-disconnect recovery.
