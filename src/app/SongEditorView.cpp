@@ -144,7 +144,7 @@ SongEditorView::SongEditorView(GhostBandAudioEngine& engine) : engine_(engine) {
 
     addLabel(prompt_hint_, "Leave empty to use the song prompt.", kDim);
 
-    addLabel(intensity_label_, "AI INTENSITY", kDim);
+    addLabel(intensity_label_, "BAND INTENSITY", kDim);
     addAndMakeVisible(intensity_slider_);
     intensity_slider_.setRange(0.0, 100.0, 1.0);
     intensity_slider_.setTextValueSuffix(" %");

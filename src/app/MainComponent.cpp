@@ -197,20 +197,23 @@ MainComponent::MainComponent() {
     prompt_status_label_.setColour(juce::Label::textColourId, kDim);
 
     addAndMakeVisible(buffer_label_);
-    buffer_label_.setText("GEN BUFFER", juce::dontSendNotification);
+    buffer_label_.setText("FOLLOW RESPONSE", juce::dontSendNotification);
     buffer_label_.setColour(juce::Label::textColourId, kDim);
 
     addAndMakeVisible(buffer_combo_);
-    buffer_combo_.addItem("1 frame (40 ms) - lowest latency", 1);
-    buffer_combo_.addItem("2 frames (80 ms) - default", 2);
-    buffer_combo_.addItem("3 frames (120 ms) - most margin", 3);
+    // The design names this FOLLOW RESPONSE, which is what the performer actually
+    // experiences; "generation buffer" is the mechanism. Fast responds sooner and
+    // leaves less margin against a late inference frame.
+    buffer_combo_.addItem("Fast - 40 ms, least margin", 1);
+    buffer_combo_.addItem("Balanced - 80 ms (default)", 2);
+    buffer_combo_.addItem("Stable - 120 ms, most margin", 3);
     buffer_combo_.setSelectedId(2, juce::dontSendNotification);
     buffer_combo_.onChange = [this] {
         engine_.setGenerationBufferFrames(buffer_combo_.getSelectedId());
     };
 
     addAndMakeVisible(level_label_);
-    level_label_.setText("AI OUTPUT LEVEL", juce::dontSendNotification);
+    level_label_.setText("BAND VOLUME", juce::dontSendNotification);
     level_label_.setColour(juce::Label::textColourId, kDim);
 
     addAndMakeVisible(level_slider_);
@@ -222,7 +225,7 @@ MainComponent::MainComponent() {
     };
 
     addAndMakeVisible(intensity_label_);
-    intensity_label_.setText("AI INTENSITY", juce::dontSendNotification);
+    intensity_label_.setText("BAND INTENSITY", juce::dontSendNotification);
     intensity_label_.setColour(juce::Label::textColourId, kDim);
 
     addAndMakeVisible(intensity_slider_);
@@ -537,7 +540,7 @@ void MainComponent::refreshStatus() {
     juce::String status = juce::String(toDisplayString(state));
     if (!engine_.hasRealBackend() && state != core::EngineState::Loading) {
         // CLAUDE.md rule 2: never present a non-generating backend as a working band.
-        status += "   -   NO AI BAND (no model loaded)";
+        status += "   -   NO BAND (no model loaded)";
     }
     if (engine_.isPanicked()) status += "   -   PANIC";
     status_label_.setText(status, juce::dontSendNotification);
@@ -553,7 +556,9 @@ void MainComponent::refreshStatus() {
     if (state == core::EngineState::Error) warning = engine_.engineError();
     const bool degraded = engine_.health() == core::Health::Degraded;
     if (degraded) {
-        warning = "AI muted: sustained audio underruns. Press RECOVER AI when stable.";
+        // Same reasoning as the PANIC banner: say what stopped, then say what did not.
+        warning = "BAND STOPPED - sustained audio underruns. Your guitar and vocal are "
+                  "unaffected. Press RECOVER AI when stable.";
     }
     recover_button_.setVisible(degraded);
     warning_label_.setText(warning, juce::dontSendNotification);

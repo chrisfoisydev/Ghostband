@@ -96,7 +96,7 @@ private:
     /// explicit operator action (the band must not reappear mid-phrase on its own), so
     /// there has to be a control for it — without one, Degraded is a dead end.
     juce::TextButton recover_button_{"RECOVER AI"};
-    juce::ToggleButton ai_band_toggle_{"AI BAND"};
+    juce::ToggleButton ai_band_toggle_{"BAND"};
 
     juce::TextEditor prompt_editor_;
     /// Explicit apply. Relying on Enter alone silently swallowed every prompt edit on the
@@ -104,15 +104,16 @@ private:
     juce::TextButton apply_prompt_button_{"APPLY PROMPT"};
     juce::Label prompt_status_label_;
 
-    /// Generation buffer in MRT2 frames. The one lever that meaningfully moves control
-    /// latency; exposed so it can be traded against underrun margin by ear.
+    /// FOLLOW RESPONSE — the generation buffer in MRT2 frames, named for what the
+    /// performer experiences rather than the mechanism. The one lever that meaningfully
+    /// moves control latency; exposed so it can be traded against underrun margin by ear.
     juce::ComboBox buffer_combo_;
     juce::Label buffer_label_;
     juce::Slider level_slider_;
     juce::Label level_label_;
 
-    /// AI INTENSITY — how much the band plays. Kept visually adjacent to, but clearly
-    /// distinct from, AI OUTPUT LEVEL; the brief forbids conflating them.
+    /// BAND INTENSITY — how much the band plays. Kept visually adjacent to, but clearly
+    /// distinct from, BAND VOLUME; the brief forbids conflating them.
     juce::Slider intensity_slider_;
     juce::Label intensity_label_;
 

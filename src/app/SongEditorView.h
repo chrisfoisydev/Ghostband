@@ -82,7 +82,7 @@ private:
     juce::Label prompt_hint_;
     juce::Label intensity_label_;
     juce::Slider intensity_slider_;
-    juce::ToggleButton ai_enabled_toggle_{"AI BAND PLAYS IN THIS SECTION"};
+    juce::ToggleButton ai_enabled_toggle_{"BAND PLAYS IN THIS SECTION"};
     juce::Label transition_label_;
     juce::ComboBox transition_combo_;
 

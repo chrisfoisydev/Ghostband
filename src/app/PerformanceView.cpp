@@ -139,7 +139,7 @@ void PerformanceView::drawSectionBlock(juce::Graphics& g, juce::Rectangle<int> a
 
     g.setColour(kStageText);
     g.setFont(stageFont(30.0f));
-    g.drawText(juce::String("AI BAND  ") + (audible ? "ON" : "OFF"),
+    g.drawText(juce::String("BAND  ") + (audible ? "ON" : "OFF"),
                row.withTrimmedLeft(26), juce::Justification::centredLeft);
 
     g.setColour(kStageDim);
@@ -227,9 +227,21 @@ void PerformanceView::paint(juce::Graphics& g) {
     if (engine_.isPanicked()) {
         // Unmissable. If the band is silent because of PANIC, that must never be a
         // mystery the performer has to solve mid-song.
+        //
+        // Two lines, from the design canvas, because the first one alone is not the
+        // reassurance that matters. "AI SILENT" says what stopped; what the performer
+        // actually needs to know in that second is that their own signal did not — that
+        // they can keep playing while they work out what went wrong. That is the brief's
+        // failure philosophy stated on screen rather than only in the architecture.
+        auto banner = getLocalBounds().reduced(40, 28).removeFromBottom(160);
+
         g.setColour(kStagePanic);
         g.setFont(stageFont(44.0f));
-        g.drawText("PANIC - AI SILENT", getLocalBounds().reduced(40, 28).removeFromBottom(160),
+        g.drawText("BAND STOPPED", banner.removeFromTop(56), juce::Justification::centred);
+
+        g.setColour(kStageText);
+        g.setFont(stageFont(26.0f));
+        g.drawText("YOUR GUITAR AND VOCAL ARE CLEAR", banner.removeFromTop(34),
                    juce::Justification::centred);
     }
 }

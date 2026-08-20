@@ -30,7 +30,7 @@ const char* toDisplayString(PerformanceAction a) noexcept {
         case PerformanceAction::NextSection:     return "NEXT SECTION";
         case PerformanceAction::PreviousSection: return "PREVIOUS SECTION";
         case PerformanceAction::RepeatSection:   return "REPEAT SECTION";
-        case PerformanceAction::ToggleAiBand:    return "AI BAND ON/OFF";
+        case PerformanceAction::ToggleAiBand:    return "BAND ON/OFF";
         case PerformanceAction::Panic:           return "PANIC";
         case PerformanceAction::IntensityUp:     return "INTENSITY +";
         case PerformanceAction::IntensityDown:   return "INTENSITY -";

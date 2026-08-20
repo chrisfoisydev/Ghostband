@@ -18,7 +18,7 @@ const char* toDisplayString(Health h) noexcept {
     switch (h) {
         case Health::Healthy:  return "AUDIO STABLE";
         case Health::Warning:  return "AUDIO GLITCHING";
-        case Health::Degraded: return "AI MUTED - AUDIO UNSTABLE";
+        case Health::Degraded: return "BAND MUTED - AUDIO UNSTABLE";
     }
     return "UNKNOWN";
 }
