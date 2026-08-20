@@ -640,3 +640,44 @@ FOOT CONTROL). Moving the two LOAD buttons down is what freed the space.
 looking fine. The prediction was right and the follow-up was wrong: the overflow was
 horizontal, not the vertical squeeze that had been looked for. A predicted failure that has
 not been *specifically* checked is not a cleared one.
+
+---
+
+## 22. ✅ Soak test passed — 55 minutes, memory flat, 5 underruns
+
+**Run on an Apple M2 Pro, 2026-08-13, mains power, MacBook Pro speakers, demo song,
+untouched throughout.** Duration derived from `Blocks processed` (312,239 x 512 / 48000 =
+3,331 s), which is the app's own clock and does not depend on anyone timing it.
+
+| | 16:15 | 36:22 | 55:31 |
+|---|---|---|---|
+| Memory | 1.18 GB | 1.18 GB | 1.18 GB |
+| Underruns / dropped frames | 3 / 3 | 4 / 4 | 5 / 5 |
+| Output peak | -7.4 dBFS | -19.0 dBFS | -5.5 dBFS |
+| Output RMS | -14.8 dBFS | -28.5 dBFS | -15.1 dBFS |
+| Gain reduction | 0.0 dB | 0.0 dB | 0.0 dB |
+| Health | Healthy | Healthy | Healthy |
+
+**Memory: flat.** 1.18 GB at all three readings, over 39 minutes of observation. The +20 MB
+against the 1.16 GB baseline appeared before the first reading and never grew — early
+allocator settling, not a leak. Stated precisely: the two-decimal readout bounds growth at
+**under ~10 MB per 20 minutes**, which is a bound rather than a proof of zero. A 2 MB/hour
+drip would be invisible here and would also be harmless.
+
+**Underruns: 5 in 312,239 blocks (0.0016%).** The rate *fell*: three in the first 16
+minutes, two across the next 39. Falling matters more than the total — a rising or
+clustering rate late in a run is what thermal throttling looks like, and is the specific
+failure a long soak exists to catch. It did not happen.
+
+**A false alarm worth recording.** At 36 minutes the output was 11.6 dB quieter than at 16
+(-19.0 peak vs -7.4), which raised a real concern: a band that fades over a long set would
+have the performer pushing BAND VOLUME up until the limiter starts working. By 55 minutes
+it was back to -5.5. **A decaying output cannot recover**, so it was musical variation and
+peak/RMS are near-instantaneous readings of whatever happens to be playing. The lesson is
+about the metric, not the engine: two samples of an instantaneous value never establish a
+trend, and it was right not to conclude anything from them at the time.
+
+**What this does not establish:** one run, on mains, through laptop speakers, with an
+untouched demo song. Not tested on battery, not through an interface, and nothing was
+performed during it — no section changes, no harmony, no pedal. The pre-gig checklist in
+`STAGE_READINESS.md` asks for battery as well, and a set is not 55 minutes of one song.

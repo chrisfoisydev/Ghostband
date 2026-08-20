@@ -21,8 +21,8 @@ Legend: ✅ verified by execution · ⚠️ implemented but unverified · ❌ no
 | 6 | MIDI footswitch control works | 🟡 | **MIDI Learn confirmed working on M2 Pro (2026-08-13)**: LEARN bound a key, the action fired, logged end to end. Mapping also **survived `pkill`**, confirming §17 and §18 against real files. Via the on-screen keyboard — **no hardware pedal has ever been connected** — `KNOWN_ISSUES.md` §15 |
 | 7 | AI mute works | 🟡 | unit-tested + wired to AI BAND; audible path confirmed (peak -12.6 dBFS, RMS -20.1), mute itself not yet A/B'd |
 | 8 | **PANIC always works** | 🟡 | **confirmed audibly on M2 Pro (2026-08-13)** — Escape silenced the band. Fade unit-tested, app reports 32.0 ms. Not yet tested through a PA at performance volume, with a foot, or repeatedly — which is what "always" requires |
-| 9 | No persistent audio glitches | 🟡 | **0 underruns, 0 dropped frames, 0 absorbed by priming**; limiter never engaged (0.0 dB GR). No 60-min soak. |
-| 10 | No serious memory leak over 60 min | 🟡 | memory now measured; **1.16 GB baseline** with mrt2_small resident. 60-min trend not taken. |
+| 9 | No persistent audio glitches | 🟡 | **55-minute soak, M2 Pro, 2026-08-13: 5 underruns in 312,239 blocks (0.0016%)**, rate *falling* over the run (3 in the first 16 min, 2 in the next 39) so no thermal clustering. Health Healthy throughout; limiter never engaged (0.0 dB GR). One run, on mains, speakers only |
+| 10 | No serious memory leak over 60 min | 🟡 | **flat across a 55-minute soak (2026-08-13): 1.18 GB at 16, 36 and 55 minutes.** The +20 MB over the 1.16 GB baseline was early settling, not a trend. Readout resolution bounds growth at <10 MB/20 min rather than proving zero. Ran 55:31, not the full 60 |
 | 11 | Audio device reconnect handled gracefully | ❌ | Phase 4 |
 | 12 | Model errors do not crash the app | ⚠️ | `EngineState` error path **tested**; real MRT2 errors unobserved |
 | 13 | Songs persist | 🟡 | **save confirmed on disk** (M2 Pro, 2026-08-13): `Demo-Song.ghostsong`, 655 bytes, Documents permission granted, atomic write left no temp file. **Open not yet exercised** — no quit/relaunch round trip |
@@ -40,10 +40,15 @@ generates → `RealtimeRunner` streams → GhostBand's safety stage processes �
 The underrun-policy fix (`KNOWN_ISSUES.md` §10) is confirmed working on hardware, not just
 in tests.
 
-What that does *not* yet establish: nothing has run longer than a few minutes, PANIC has
-not been A/B'd through a PA at volume, no device has been unplugged mid-stream, and no
-memory figure has been taken. Those are Phase 4, and they are what separate "it works" from
-"I would take it to a gig".
+**A 55-minute soak passed (2026-08-13)** — memory flat at 1.18 GB across three readings,
+5 underruns in 312,239 blocks at a *falling* rate, Health never left Healthy, limiter never
+engaged. `KNOWN_ISSUES.md` §22 has the table and what it does not cover.
+
+What that does *not* yet establish: the soak was one run, on mains, through laptop
+speakers, on an untouched demo song — nothing was performed during it. PANIC has been heard
+but not A/B'd through a PA at volume or pressed with a foot. No device has been unplugged
+mid-stream. No hardware pedal has ever been connected. Those are what still separate "it
+works" from "I would take it to a gig".
 
 ---
 
