@@ -2,7 +2,7 @@
 
 Status legend: ✅ done · 🟡 in progress · ⚠️ written but unverified · ❌ not started · 🚫 blocked
 
-Last updated: 2026-08-11
+Last updated: 2026-08-20
 
 ---
 
@@ -146,8 +146,8 @@ cmake --build build -j && ctest --test-dir build --output-on-failure
 | 2.4 | Wire sections to the engine: prompt blend + intensity per section | ✅ core done, **tested** (`PerformanceEngine`) — sections take all 6 slots; intensity keeps parameter terms only |
 | 2.5 | Performance Mode UI (huge section name, next preview, minimal chrome) | ✅ **works on hardware** — section changes sound musical, driven by arrow keys alone |
 | 2.6 | MIDI foot controller + MIDI Learn + persistent mappings | 🟡 core done, **tested** (`MidiMappingSet`, 33 tests); engine wiring + `FootControlPanel` + mapping file **compile and launch**, runtime behaviour unverified — see `KNOWN_ISSUES.md` §15 |
-| 2.7 | Setlists | 🟡 core done, **tested** (`Setlist`, `SetlistController`, 22 tests); app wiring + stage-screen set position **compile and launch**, runtime behaviour unverified |
-| 2.8 | Versioned persistence with migrations | 🟡 core done, **tested** (`Persistence`, 45 tests) — schema version, newer-file refusal, migration dispatch, C-locale numbers; file I/O **compiles and launches**, never run against a real file |
+| 2.7 | Setlists | 🟡 core done, **tested** (`Setlist`, `SetlistController`, 22 tests; `SetlistEditor`, 22 tests). A setlist **screen** now exists so a set can be built, reordered and saved in-app rather than by hand-writing a file — written 2026-08-20, **not yet compiled or exercised on disk** |
+| 2.8 | Versioned persistence with migrations | 🟡 core done, **tested** (`Persistence`, 45 tests) — schema version, newer-file refusal, migration dispatch, C-locale numbers. **Song round trip exercised on hardware 2026-08-20** (save → quit → relaunch → open). It failed first time — the editor discarded the edit before it reached the file (`KNOWN_ISSUES.md` §25). Setlist round trip still unexercised |
 | 2.9 | Song Map harmony mode | ❌ |
 
 The prompt-slot pre-encoding strategy (`ARCHITECTURE.md` §8) is a Phase 2 prerequisite,
@@ -174,6 +174,8 @@ recovery · richer diagnostics · buffer tuning on real hardware · benchmarking
 
 Onboarding · presets · performance-state restore · async recording writer · import/export ·
 model management · packaging + notarisation. All ❌.
+
+**UI shell — 🟡 the design canvas's application bar and screens, running on hardware (2026-08-20).** Nav is `SETUP · SONGS · SETLISTS · PEDAL · PERFORM`; HOME is omitted because it needs venue, set time, set length and a recently-played list, none of which GhostBand tracks. Anton is bundled (OFL-1.1). See `KNOWN_ISSUES.md` §23–§24 for the three passes this took and why the first two did not converge.
 
 **Song Editor — 🟡 core tested, UI works on hardware (2026-08-13). Pulled forward.** Persistence (2.7/2.8)
 saves and opens songs, but until there was an editor the only song that could be *created*
