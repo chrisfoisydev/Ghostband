@@ -45,6 +45,35 @@ inline const juce::Colour kDim{0xff8a8f97};
 inline const juce::Colour kMuted{0xffc9c5bd};
 /// @}
 
+/// @name Structure — the colours that build the canvas's *layout*, not its controls
+///
+/// These were the missing half of the palette. The first two design passes took the
+/// semantic colours above and left every screen built out of JUCE's own boxes, so the app
+/// was the right colour and the wrong shape. The canvas draws almost nothing as a filled
+/// panel: it draws hairline-separated rows on the bare ground, occasional bordered cards
+/// one step off black, and outlined buttons. That needs its own names.
+/// @{
+/// Row separators and the header's bottom edge. One pixel, everywhere.
+inline const juce::Colour kHairline{0xff1e2126};
+/// Card ground. Barely above the background on purpose — a card is marked by its border,
+/// not by its fill.
+inline const juce::Colour kCard{0xff101215};
+inline const juce::Colour kCardBorder{0xff23262b};
+/// Outlined controls. Buttons in the canvas are a 1px border and transparent fill.
+inline const juce::Colour kControlBorder{0xff2c3036};
+inline const juce::Colour kControlBorderHover{0xff555b63};
+/// The quietest tracked caps: section kickers, column headings, units.
+inline const juce::Colour kKicker{0xff6e737b};
+/// Header nav and status text — between kKicker and kDim.
+inline const juce::Colour kHeaderDim{0xff7c818a};
+/// Body values beside a heading.
+inline const juce::Colour kValue{0xffa8adb5};
+/// Anton row headings. Slightly softer than kText so the display type does not glare.
+inline const juce::Colour kHeading{0xffe4e0d8};
+/// The brightest text in the design, reserved for the one thing a screen is about.
+inline const juce::Colour kBright{0xfff4f1eb};
+/// @}
+
 /// @name Performance Mode — read across a stage
 /// @{
 inline const juce::Colour kStageBg{0xff0a0a0a};

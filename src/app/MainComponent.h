@@ -9,8 +9,14 @@
 #include "GhostBandAudioEngine.h"
 #include "SongEditorView.h"
 #include "PerformanceView.h"
+#include "StageHeader.h"
 
 #include <juce_gui_extra/juce_gui_extra.h>
+
+#include <array>
+#include <functional>
+#include <utility>
+#include <vector>
 
 namespace ghostband::app {
 
@@ -39,6 +45,23 @@ private:
     juce::StringArray lines_;
 };
 
+/// The scrollable body of the setup screen.
+///
+/// Exists because the design's SETUP screen is a tall single column that scrolls
+/// (`overflow-y: auto` in the canvas), and JUCE needs a real component inside a Viewport to
+/// scroll. Every setup control is a child of this rather than of MainComponent; the
+/// overlays (stage, pedal, editor) are not, because they own the whole window.
+///
+/// Painting is delegated back to MainComponent through `onPaint` so the drawing code stays
+/// next to the state it draws, instead of this class needing a reference to the engine.
+class SetupContent : public juce::Component {
+public:
+    std::function<void(juce::Graphics&)> onPaint;
+    void paint(juce::Graphics& g) override {
+        if (onPaint) onPaint(g);
+    }
+};
+
 class MainComponent : public juce::Component,
                       private juce::Timer,
                       private juce::MidiKeyboardState::Listener {
@@ -60,15 +83,44 @@ private:
     void applyPrompt();
     void loadModel();
 
+    /// One line of the YOUR RIG list — the design's `grid-template-columns: 220px 1fr auto`
+    /// row: a display-type heading, a quiet value, and a tracked status beside a lamp.
+    ///
+    /// This replaces the old single status label, which packed model, backend and PANIC
+    /// state into one run-on sentence ("NO MODEL - NO BAND (no model loaded)"). Five
+    /// labelled rows say the same things separably, which is what you want at soundcheck.
+    struct RigRow {
+        juce::String label;
+        juce::String value;
+        juce::String status;
+        juce::Colour colour = kDim;
+    };
+
+    /// Recomputed on every refresh. Fixed size so a 10 Hz refresh does not churn the heap
+    /// on the message thread; the strings themselves still allocate, which is fine here and
+    /// would not be in the audio callback.
+    std::array<RigRow, 5> rig_rows_{};
+    /// Where the rig list was laid out, so paint() and resized() cannot disagree about it.
+    juce::Rectangle<int> rig_area_;
+    juce::Rectangle<int> title_area_;
+    /// Section kickers — the canvas's tiny 0.22em caps above each block. Drawn rather than
+    /// made into Labels because they are typography, not controls, and a Label per kicker
+    /// would be five more components to keep in sync with the layout.
+    std::vector<std::pair<juce::String, juce::Rectangle<int>>> kickers_;
+
+    /// Refresh the rig list from engine state. Returns true if anything changed, so the
+    /// 10 Hz timer does not repaint a tall scrolling component that has not moved.
+    bool updateRigRows();
+    void paintSetup(juce::Graphics& g);
+    /// Give a button the canvas's inverted or destructive treatment. See StageChrome.h.
+    static void makePrimary(juce::TextButton& button);
+    static void makeDanger(juce::TextButton& button);
+
     void saveCurrentSong();
     void openSongFile();
     void openSetlistFile();
     /// Report a load/save outcome in the warning line. Empty text clears it.
     void showFileMessage(const juce::String& message, bool isError);
-
-    /// Draw the GHOSTBAND wordmark: "GHOST" outlined, "BAND" solid, set as one word.
-    /// `baseline` is the text baseline, not the top of the glyphs.
-    void drawWordmark(juce::Graphics& g, float x, float baseline, float height);
 
     /// Resolve the default MRT2 install location used by upstream's own examples:
     /// ~/Documents/Magenta/magenta-rt-v2/
@@ -76,6 +128,12 @@ private:
     static juce::File defaultModelPath(const juce::String& modelName);
 
     GhostBandAudioEngine engine_;
+
+    /// Persistent chrome. A direct child of MainComponent, so it stays put while the setup
+    /// body scrolls beneath it.
+    StageHeader header_;
+    juce::Viewport setup_viewport_;
+    SetupContent setup_content_;
 
     juce::TextButton load_button_{"LOAD MODEL"};
     juce::TextButton load_song_button_{"LOAD DEMO SONG"};
@@ -128,7 +186,9 @@ private:
     std::unique_ptr<juce::MidiKeyboardComponent> keyboard_;
     juce::Label harmony_label_;
 
-    juce::Label status_label_;
+    /// No `status_label_` any more. It carried model, backend and PANIC state in one
+    /// run-on line; the YOUR RIG rows carry the same facts separably, and PANIC has the
+    /// warning banner and the button's own RELEASE PANIC text.
     juce::Label warning_label_;
     /// Outcome of the last save/open. Separate from warning_label_, which is rewritten
     /// from engine state ten times a second and would erase it immediately.

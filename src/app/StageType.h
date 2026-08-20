@@ -71,7 +71,10 @@ inline juce::Font monoFont(float height = 13.0f) {
                                         height, juce::Font::plain)};
 }
 
-/// Corner radius used for panels and cards throughout the canvas.
-inline constexpr float kCornerRadius = 6.0f;
+/// Chamfer depth for cards and the primary action, in pixels. The canvas cuts 14px on
+/// buttons and 18px on the large cards; nothing on it is rounded, which is why there is no
+/// corner *radius* here. See `chamferedRect` in StageChrome.h.
+inline constexpr float kCardChamfer = 18.0f;
+inline constexpr float kControlChamfer = 12.0f;
 
 } // namespace ghostband::app

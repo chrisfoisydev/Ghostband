@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "StageChrome.h"
 #include "StagePalette.h"
 #include "StageType.h"
 

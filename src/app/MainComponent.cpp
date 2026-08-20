@@ -5,7 +5,9 @@
 
 #include "MainComponent.h"
 
+#include "StageChrome.h"
 #include "StagePalette.h"
+#include "StageType.h"
 
 #include "core/ChordNamer.h"
 #include "core/GhostBandConstants.h"
@@ -122,48 +124,87 @@ void DiagnosticsText::paint(juce::Graphics& g) {
     }
 }
 
+void MainComponent::makePrimary(juce::TextButton& button) {
+    // Inverted: light fill, dark text. The canvas allows one per screen — the thing you
+    // came to the screen to do. GhostBandLookAndFeel reads the property when it draws.
+    button.getProperties().set(prop::kPrimary, true);
+    button.setColour(juce::TextButton::textColourOffId, kBackground);
+    button.setColour(juce::TextButton::textColourOnId, kBackground);
+}
+
+void MainComponent::makeDanger(juce::TextButton& button) {
+    button.getProperties().set(prop::kDanger, true);
+    button.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
+    button.setColour(juce::TextButton::textColourOnId, juce::Colours::white);
+}
+
 MainComponent::MainComponent() {
     const juce::String audio_error = engine_.initialise();
 
-    addAndMakeVisible(load_button_);
+    // Persistent chrome first. The nav is the design's shell; everything else hangs inside
+    // it. HOME and SETLISTS are deliberately absent — see StageHeader.h for why.
+    addAndMakeVisible(header_);
+    header_.onNavigate = [this](StageHeader::Screen screen) {
+        switch (screen) {
+            case StageHeader::Screen::Setup:
+                setPerformanceMode(false);
+                setFootControlMode(false);
+                setSongEditorMode(false);
+                break;
+            case StageHeader::Screen::Songs:   setSongEditorMode(true); break;
+            case StageHeader::Screen::Pedal:   setFootControlMode(true); break;
+            case StageHeader::Screen::Perform: setPerformanceMode(true); break;
+        }
+    };
+
+    addAndMakeVisible(setup_viewport_);
+    setup_viewport_.setViewedComponent(&setup_content_, false);
+    setup_viewport_.setScrollBarsShown(true, false);
+    // No background colour is set on the Viewport: juce::Viewport declares no ColourIds and
+    // paints nothing of its own, so MainComponent's fillAll shows through any gap between
+    // the content's height and the viewport's.
+    setup_content_.onPaint = [this](juce::Graphics& g) { paintSetup(g); };
+
+    setup_content_.addAndMakeVisible(load_button_);
     load_button_.onClick = [this] { loadModel(); };
 
-    addAndMakeVisible(load_song_button_);
+    setup_content_.addAndMakeVisible(load_song_button_);
     load_song_button_.onClick = [this] {
         engine_.loadDemoSong();
         refreshStatus();
     };
 
-    addAndMakeVisible(performance_button_);
+    setup_content_.addAndMakeVisible(performance_button_);
+    makePrimary(performance_button_);
     performance_button_.onClick = [this] { setPerformanceMode(true); };
 
-    addAndMakeVisible(foot_control_button_);
+    setup_content_.addAndMakeVisible(foot_control_button_);
     foot_control_button_.onClick = [this] { setFootControlMode(true); };
 
-    addAndMakeVisible(edit_song_button_);
+    setup_content_.addAndMakeVisible(edit_song_button_);
     edit_song_button_.onClick = [this] { setSongEditorMode(true); };
 
-    addAndMakeVisible(save_song_button_);
+    setup_content_.addAndMakeVisible(save_song_button_);
     save_song_button_.onClick = [this] { saveCurrentSong(); };
 
-    addAndMakeVisible(open_song_button_);
+    setup_content_.addAndMakeVisible(open_song_button_);
     open_song_button_.onClick = [this] { openSongFile(); };
 
-    addAndMakeVisible(open_setlist_button_);
+    setup_content_.addAndMakeVisible(open_setlist_button_);
     open_setlist_button_.onClick = [this] { openSetlistFile(); };
 
-    addAndMakeVisible(file_status_label_);
+    setup_content_.addAndMakeVisible(file_status_label_);
     file_status_label_.setColour(juce::Label::textColourId, kDim);
+    file_status_label_.setFont(labelFont(11.0f));
 
-    addAndMakeVisible(start_button_);
+    setup_content_.addAndMakeVisible(start_button_);
     start_button_.onClick = [this] { engine_.startGeneration(); refreshStatus(); };
 
-    addAndMakeVisible(stop_button_);
+    setup_content_.addAndMakeVisible(stop_button_);
     stop_button_.onClick = [this] { engine_.stopGeneration(); refreshStatus(); };
 
-    addAndMakeVisible(panic_button_);
-    panic_button_.setColour(juce::TextButton::buttonColourId, kPanicRed);
-    panic_button_.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
+    setup_content_.addAndMakeVisible(panic_button_);
+    makeDanger(panic_button_);
     panic_button_.onClick = [this] {
         // Toggle: a second press releases, so PANIC is recoverable without a menu.
         if (engine_.isPanicked()) engine_.clearPanic();
@@ -171,16 +212,16 @@ MainComponent::MainComponent() {
         refreshStatus();
     };
 
-    addChildComponent(recover_button_);  // shown only while Degraded
+    setup_content_.addChildComponent(recover_button_);  // shown only while Degraded
     recover_button_.setColour(juce::TextButton::buttonColourId, kWarn);
     recover_button_.setColour(juce::TextButton::textColourOffId, juce::Colours::black);
     recover_button_.onClick = [this] { engine_.recoverFromDegraded(); refreshStatus(); };
 
-    addAndMakeVisible(ai_band_toggle_);
+    setup_content_.addAndMakeVisible(ai_band_toggle_);
     ai_band_toggle_.setColour(juce::ToggleButton::textColourId, kText);
     ai_band_toggle_.onClick = [this] { engine_.setAiBandOn(ai_band_toggle_.getToggleState()); };
 
-    addAndMakeVisible(prompt_editor_);
+    setup_content_.addAndMakeVisible(prompt_editor_);
     prompt_editor_.setMultiLine(true);
     prompt_editor_.setReturnKeyStartsNewLine(false);
     prompt_editor_.setText("warm organic indie folk ensemble, piano, bass and restrained "
@@ -190,17 +231,19 @@ MainComponent::MainComponent() {
     prompt_editor_.onReturnKey = [this] { applyPrompt(); };
     prompt_editor_.onFocusLost = [this] { applyPrompt(); };
 
-    addAndMakeVisible(apply_prompt_button_);
+    setup_content_.addAndMakeVisible(apply_prompt_button_);
     apply_prompt_button_.onClick = [this] { applyPrompt(); };
 
-    addAndMakeVisible(prompt_status_label_);
+    setup_content_.addAndMakeVisible(prompt_status_label_);
     prompt_status_label_.setColour(juce::Label::textColourId, kDim);
+    prompt_status_label_.setFont(labelFont(10.0f));
 
-    addAndMakeVisible(buffer_label_);
+    setup_content_.addAndMakeVisible(buffer_label_);
     buffer_label_.setText("FOLLOW RESPONSE", juce::dontSendNotification);
-    buffer_label_.setColour(juce::Label::textColourId, kDim);
+    buffer_label_.setColour(juce::Label::textColourId, kKicker);
+    buffer_label_.setFont(labelFont(11.0f));
 
-    addAndMakeVisible(buffer_combo_);
+    setup_content_.addAndMakeVisible(buffer_combo_);
     // The design names this FOLLOW RESPONSE, which is what the performer actually
     // experiences; "generation buffer" is the mechanism. Fast responds sooner and
     // leaves less margin against a late inference frame.
@@ -212,11 +255,12 @@ MainComponent::MainComponent() {
         engine_.setGenerationBufferFrames(buffer_combo_.getSelectedId());
     };
 
-    addAndMakeVisible(level_label_);
+    setup_content_.addAndMakeVisible(level_label_);
     level_label_.setText("BAND VOLUME", juce::dontSendNotification);
-    level_label_.setColour(juce::Label::textColourId, kDim);
+    level_label_.setColour(juce::Label::textColourId, kKicker);
+    level_label_.setFont(labelFont(11.0f));
 
-    addAndMakeVisible(level_slider_);
+    setup_content_.addAndMakeVisible(level_slider_);
     level_slider_.setRange(-60.0, 6.0, 0.1);
     level_slider_.setValue(0.0, juce::dontSendNotification);
     level_slider_.setTextValueSuffix(" dB");
@@ -224,11 +268,12 @@ MainComponent::MainComponent() {
         engine_.setOutputLevelDb(static_cast<float>(level_slider_.getValue()));
     };
 
-    addAndMakeVisible(intensity_label_);
+    setup_content_.addAndMakeVisible(intensity_label_);
     intensity_label_.setText("BAND INTENSITY", juce::dontSendNotification);
-    intensity_label_.setColour(juce::Label::textColourId, kDim);
+    intensity_label_.setColour(juce::Label::textColourId, kKicker);
+    intensity_label_.setFont(labelFont(11.0f));
 
-    addAndMakeVisible(intensity_slider_);
+    setup_content_.addAndMakeVisible(intensity_slider_);
     intensity_slider_.setRange(0.0, 100.0, 1.0);
     intensity_slider_.setValue(50.0, juce::dontSendNotification);
     intensity_slider_.setTextValueSuffix(" %");
@@ -241,21 +286,17 @@ MainComponent::MainComponent() {
     keyboard_->setAvailableRange(36, 84);          // C2..C6, enough for chord work
     keyboard_->setKeyPressBaseOctave(4);           // computer keys start at C4
     keyboard_->setLowestVisibleKey(48);
-    addAndMakeVisible(*keyboard_);
+    setup_content_.addAndMakeVisible(*keyboard_);
     keyboard_state_.addListener(this);
 
-    addAndMakeVisible(harmony_label_);
+    setup_content_.addAndMakeVisible(harmony_label_);
     harmony_label_.setColour(juce::Label::textColourId, kText);
-    harmony_label_.setFont(juce::FontOptions(18.0f, juce::Font::bold));
+    harmony_label_.setFont(valueFont(16.0f));
 
-    addAndMakeVisible(status_label_);
-    status_label_.setColour(juce::Label::textColourId, kText);
-    status_label_.setFont(juce::FontOptions(20.0f, juce::Font::bold));
-
-    addAndMakeVisible(warning_label_);
+    setup_content_.addAndMakeVisible(warning_label_);
     warning_label_.setColour(juce::Label::textColourId, kWarn);
 
-    addAndMakeVisible(diagnostics_viewport_);
+    setup_content_.addAndMakeVisible(diagnostics_viewport_);
     diagnostics_viewport_.setViewedComponent(&diagnostics_text_, false);
     diagnostics_viewport_.setScrollBarsShown(true, false);
 
@@ -279,7 +320,7 @@ MainComponent::MainComponent() {
         /*showMidiOutput*/ false,         // GhostBand never sends MIDI out
         /*showChannelsAsStereoPairs*/ true,
         /*hideAdvanced*/ false);
-    addAndMakeVisible(*device_selector_);
+    setup_content_.addAndMakeVisible(*device_selector_);
 
     if (audio_error.isNotEmpty()) {
         warning_label_.setText("Audio device error: " + audio_error, juce::dontSendNotification);
@@ -293,7 +334,7 @@ MainComponent::MainComponent() {
     // that moment is skipped by its null guard — permanently, because the size never
     // changes again afterwards. Sizing first left the on-screen keyboard and the audio
     // device selector laid out at zero size and therefore invisible.
-    setSize(980, 920);
+    setSize(1060, 940);
 }
 
 MainComponent::~MainComponent() {
@@ -336,7 +377,9 @@ void MainComponent::loadModel() {
     const juce::File model = defaultModelPath("mrt2_small");
 
     load_button_.setEnabled(false);
-    status_label_.setText("LOADING...", juce::dontSendNotification);
+    // The MODEL rig row reports progress now; refreshStatus() reads engine state, so a
+    // separate "LOADING..." write here would only race it.
+    refreshStatus();
 
     engine_.loadModelAsync(resources, model, [this](bool ok, juce::String error) {
         load_button_.setEnabled(true);
@@ -491,15 +534,21 @@ void MainComponent::applyScreenVisibility() {
     // so switching is instant and nothing is reallocated mid-performance.
     const bool setup_visible = !performance_mode_ && !foot_control_mode_ && !song_editor_mode_;
 
-    for (int i = 0; i < getNumChildComponents(); ++i) {
-        auto* child = getChildComponent(i);
-        if (child == performance_view_.get() || child == foot_control_panel_.get()
-            || child == song_editor_view_.get()) continue;
-        child->setVisible(setup_visible);
-    }
+    // Now that every setup control lives inside setup_content_, this component has exactly
+    // five direct children, so visibility is stated rather than swept. The old loop hid
+    // "everything that is not an overlay", which would now also hide the header and defeat
+    // the persistent shell the design is built around.
+    setup_viewport_.setVisible(setup_visible);
+    header_.setVisible(!performance_mode_);
+
     if (performance_view_ != nullptr) performance_view_->setVisible(performance_mode_);
     if (foot_control_panel_ != nullptr) foot_control_panel_->setVisible(foot_control_mode_);
     if (song_editor_view_ != nullptr) song_editor_view_->setVisible(song_editor_mode_);
+
+    header_.setActiveScreen(performance_mode_  ? StageHeader::Screen::Perform
+                            : foot_control_mode_ ? StageHeader::Screen::Pedal
+                            : song_editor_mode_  ? StageHeader::Screen::Songs
+                                                 : StageHeader::Screen::Setup);
 
     resized();
     repaint();
@@ -537,13 +586,7 @@ void MainComponent::refreshStatus() {
                                : "Harmony: " + chord_notes + "   " + chord_name,
                            juce::dontSendNotification);
 
-    juce::String status = juce::String(toDisplayString(state));
-    if (!engine_.hasRealBackend() && state != core::EngineState::Loading) {
-        // CLAUDE.md rule 2: never present a non-generating backend as a working band.
-        status += "   -   NO BAND (no model loaded)";
-    }
-    if (engine_.isPanicked()) status += "   -   PANIC";
-    status_label_.setText(status, juce::dontSendNotification);
+    if (updateRigRows()) setup_content_.repaint();
 
     panic_button_.setButtonText(engine_.isPanicked() ? "RELEASE PANIC" : "PANIC");
 
@@ -643,120 +686,264 @@ void MainComponent::refreshStatus() {
     diagnostics_text_.setContent(d, diagnostics_viewport_.getMaximumVisibleWidth());
 }
 
-void MainComponent::drawWordmark(juce::Graphics& g, float x, float baseline, float height) {
-    // The GHOSTBAND mark: one word, all caps, "GHOST" as an outline and "BAND" solid.
-    // Reproducing that split here rather than shipping a bitmap keeps the header sharp on
-    // any display and lets it inherit the stage palette. Outlines are built through
-    // GlyphArrangement -> Path because JUCE has no "stroke this text" call.
-    const juce::Font mark(juce::FontOptions(height, juce::Font::bold));
-
-    juce::GlyphArrangement ghost;
-    ghost.addLineOfText(mark, "GHOST", x, baseline);
-    juce::Path ghost_path;
-    ghost.createPath(ghost_path);
-
-    g.setColour(kText);
-    g.strokePath(ghost_path, juce::PathStrokeType(1.4f));
-
-    // Butt the two halves together — the mark is a single word, not two.
-    const float ghost_width = ghost.getBoundingBox(0, -1, true).getWidth();
-
-    juce::GlyphArrangement band;
-    band.addLineOfText(mark, "BAND", x + ghost_width, baseline);
-    juce::Path band_path;
-    band.createPath(band_path);
-    g.fillPath(band_path);
-}
+namespace {
+// Canvas measurements for the setup column. Named rather than inlined so the layout can be
+// checked against the design instead of eyeballed: the canvas pads its screens
+// `clamp(24px, 5vh, 56px) clamp(24px, 3.4vw, 48px)` and caps the reading column at 880px.
+constexpr int kContentPadX = 48;
+constexpr int kContentPadTop = 40;
+constexpr int kContentPadBottom = 56;
+constexpr int kColumnMax = 880;
+constexpr int kRigRowHeight = 56;
+constexpr int kRigLabelWidth = 200;
+constexpr int kRigStatusWidth = 150;
+constexpr int kKickerHeight = 16;
+/// Row label column for the slider/combo rows, matching the rig list's 200px so the two
+/// blocks share a left edge for their values.
+constexpr int kRowLabelWidth = 200;
+} // namespace
 
 void MainComponent::paint(juce::Graphics& g) {
+    // The header and the setup viewport paint themselves. This is only the ground behind
+    // them, visible for a frame during a resize and behind the scrollbar gutter.
+    g.fillAll(kBackground);
+}
+
+void MainComponent::paintSetup(juce::Graphics& g) {
     g.fillAll(kBackground);
 
-    drawWordmark(g, 24.0f, 44.0f, 30.0f);
+    // Screen title. The canvas sets this in Anton at `clamp(36px, 6.4vh, 64px)` — display
+    // type this large above a hairline list is most of what makes the screen read as the
+    // design rather than as a control panel.
+    g.setColour(kBright);
+    g.setFont(displayFont(static_cast<float>(title_area_.getHeight())));
+    g.drawText("YOUR RIG", title_area_, juce::Justification::centredLeft);
 
-    g.setColour(kDim);
-    g.setFont(juce::FontOptions(13.0f));
-    g.drawText("Your band follows you.   Phase 0 technical spike",
-               24, 50, 600, 20, juce::Justification::left);
+    for (const auto& [text, area] : kickers_) {
+        drawTrackedCaps(g, text, area, kKicker, 11.0f, 0.22f);
+    }
 
-    const auto health = engine_.health();
-    g.setColour(health == core::Health::Healthy ? kOk
-              : health == core::Health::Warning ? kWarn : kFault);
-    g.fillEllipse(24.0f, 88.0f, 10.0f, 10.0f);
+    // The rig list: a rule above the first row, then one hairline closing each row.
+    g.setColour(kHairline);
+    g.fillRect(rig_area_.getX(), rig_area_.getY(), rig_area_.getWidth(), 1);
+
+    auto row = rig_area_.withHeight(kRigRowHeight);
+    for (const auto& r : rig_rows_) {
+        drawHairline(g, row);
+
+        auto cells = row;
+        const auto label_cell = cells.removeFromLeft(kRigLabelWidth);
+        const auto status_cell = cells.removeFromRight(kRigStatusWidth);
+
+        g.setColour(kHeading);
+        g.setFont(displayFont(21.0f, 0.06f));
+        g.drawText(r.label, label_cell, juce::Justification::centredLeft);
+
+        g.setColour(kValue);
+        g.setFont(valueFont(14.0f));
+        g.drawText(r.value, cells, juce::Justification::centredLeft);
+
+        // Lamp then word, both in the row's colour: the block carries the state at a
+        // glance from across the room, the word confirms it up close.
+        drawStatusBlock(g, {status_cell.getX() + 4, row.getCentreY()}, r.colour);
+        drawTrackedCaps(g, r.status, status_cell.withTrimmedLeft(18), r.colour, 11.0f, 0.16f);
+
+        row.translate(0, kRigRowHeight);
+    }
+}
+
+bool MainComponent::updateRigRows() {
+    const auto snap = engine_.diagnostics();
+    const auto state = engine_.engineState();
+    const bool panicked = engine_.isPanicked();
+
+    std::array<RigRow, 5> next{};
+
+    // MODEL. `hasRealBackend()` is the honest question: a model name with no generating
+    // backend behind it would be exactly the kind of "looks live, does nothing" readout
+    // CLAUDE.md rule 2 exists to prevent.
+    if (state == core::EngineState::Loading) {
+        next[0] = {"MODEL", "loading...", "LOADING", kWarn};
+    } else if (engine_.hasRealBackend()) {
+        next[0] = {"MODEL", snap.modelName, "LOADED", kOk};
+    } else {
+        next[0] = {"MODEL", "no model loaded", "NONE", kKicker};
+    }
+
+    // BAND — what the accompaniment is doing right now, PANIC included.
+    if (panicked) {
+        next[1] = {"BAND", "silenced by PANIC", "PANIC", kPanicRed};
+    } else if (engine_.health() == core::Health::Degraded) {
+        next[1] = {"BAND", "stopped after sustained underruns", "DEGRADED", kFault};
+    } else if (!engine_.isAiBandOn()) {
+        next[1] = {"BAND", "switched off", "OFF", kKicker};
+    } else {
+        const bool running = state == core::EngineState::Running;
+        next[1] = {"BAND", juce::String(toDisplayString(state)),
+                   running ? "PLAYING" : "READY", running ? kOk : kDim};
+    }
+
+    // AUDIO — the two numbers that decide whether the engine can keep up.
+    next[2] = {"AUDIO",
+               juce::String(snap.sampleRate, 0) + " Hz   "
+                   + juce::String(static_cast<int>(snap.blockSize)) + " samples",
+               engine_.sampleRateWarning().isEmpty() ? "OK" : "CHECK",
+               engine_.sampleRateWarning().isEmpty() ? kOk : kWarn};
+
+    // MIDI — the on-screen keyboard is a genuine MIDI source, so "none" would be wrong.
+    if (engine_.anyMidiDeviceConnected()) {
+        next[3] = {"MIDI", engine_.midiInputNames().joinIntoString(", "), "CONNECTED", kOk};
+    } else {
+        next[3] = {"MIDI", "on-screen keyboard only", "NO DEVICE", kKicker};
+    }
+
+    // PEDAL — how much of the foot controller is live, not merely whether any of it is.
+    const int mapped = engine_.mappedActionCount();
+    const int total = static_cast<int>(core::allPerformanceActions().size());
+    next[4] = {"PEDAL", mappingSummary(mapped, total),
+               mapped == 0 ? "UNMAPPED" : juce::String(mapped) + " OF " + juce::String(total),
+               mapped == 0 ? kKicker : kOk};
+
+    bool changed = false;
+    for (std::size_t i = 0; i < next.size(); ++i) {
+        if (next[i].label == rig_rows_[i].label && next[i].value == rig_rows_[i].value
+            && next[i].status == rig_rows_[i].status && next[i].colour == rig_rows_[i].colour) {
+            continue;
+        }
+        changed = true;
+        break;
+    }
+    if (changed) rig_rows_ = next;
+
+    // The header lamps mirror the rows they summarise, so the bar and the list can never
+    // disagree about the same fact.
+    header_.setLampColours(next[2].colour, next[1].colour, next[4].colour);
+    header_.setScreenEnabled(StageHeader::Screen::Perform, engine_.hasSong());
+
+    return changed;
 }
 
 void MainComponent::resized() {
-    if (performance_view_ != nullptr) performance_view_->setBounds(getLocalBounds());
-    if (foot_control_panel_ != nullptr) foot_control_panel_->setBounds(getLocalBounds());
-    if (song_editor_view_ != nullptr) song_editor_view_->setBounds(getLocalBounds());
-    if (performance_mode_ || foot_control_mode_ || song_editor_mode_) return;  // overlay owns the window
+    auto area = getLocalBounds();
 
-    auto area = getLocalBounds().reduced(24);
-    area.removeFromTop(60); // title block
+    // Performance Mode takes the whole window: it is read from across a stage, and the nav
+    // bar is not something anyone touches mid-song. The pedal and editor screens keep the
+    // bar, so the shell is persistent everywhere it can honestly be.
+    header_.setVisible(!performance_mode_);
+    if (!performance_mode_) area.removeFromTop(StageHeader::kHeight);
+    header_.setBounds(getLocalBounds().removeFromTop(StageHeader::kHeight));
 
-    auto status_row = area.removeFromTop(34);
-    status_row.removeFromLeft(20); // clear the health dot
-    status_label_.setBounds(status_row);
+    if (performance_view_ != nullptr)   performance_view_->setBounds(getLocalBounds());
+    if (foot_control_panel_ != nullptr) foot_control_panel_->setBounds(area);
+    if (song_editor_view_ != nullptr)   song_editor_view_->setBounds(area);
 
-    warning_label_.setBounds(area.removeFromTop(24));
-    area.removeFromTop(8);
+    setup_viewport_.setBounds(area);
+    if (performance_mode_ || foot_control_mode_ || song_editor_mode_) return;
 
-    // Row 1 — performance controls, the ones reached for while the band is playing.
-    // PANIC and RECOVER are pulled to the right edge, away from everything else, so a
-    // mis-aimed click cannot hit them and a deliberate one always lands.
-    layoutRow(area, 40,
-              {{&performance_button_, 170},
-               {&start_button_, 90},
-               {&stop_button_, 90},
-               {&ai_band_toggle_, 120}},
-              {{&panic_button_, 180}, {&recover_button_, 130}});
+    // --- setup column ---------------------------------------------------------------
+    // Coordinates below are relative to setup_content_, which is what the Viewport scrolls.
+    const int view_width = juce::jmax(320, setup_viewport_.getMaximumVisibleWidth());
+    const int column_width = juce::jmax(240, juce::jmin(kColumnMax, view_width - kContentPadX * 2));
+    const int x = kContentPadX;
+    int y = kContentPadTop;
 
-    // Row 2 — setup, never needed mid-song. LOAD MODEL and LOAD DEMO SONG moved down here
-    // from row 1, which is what freed the space AI BAND had been squeezed out of.
-    area.removeFromTop(4);
-    layoutRow(area, 34, {{&load_button_, 120},
-                         {&load_song_button_, 140},
-                         {&edit_song_button_, 110},
-                         {&open_song_button_, 110},
-                         {&open_setlist_button_, 130},
-                         {&save_song_button_, 110},
-                         {&foot_control_button_, 140}});
+    kickers_.clear();
 
-    area.removeFromTop(2);
-    file_status_label_.setBounds(area.removeFromTop(22));
+    // `flow` exists so every button row can go through layoutRow(), which wraps rather than
+    // silently dropping a control that does not fit. That behaviour is not optional: a
+    // hand-tuned row is exactly how the BAND toggle disappeared once already
+    // (KNOWN_ISSUES.md §21). The tall height is a scratch area, not a real extent.
+    auto flowRow = [&](int rowHeight,
+                       const std::vector<std::pair<juce::Component*, int>>& leftItems,
+                       const std::vector<std::pair<juce::Component*, int>>& rightItems = {}) {
+        juce::Rectangle<int> flow(x, y, column_width, 10000);
+        const int before = flow.getY();
+        layoutRow(flow, rowHeight, leftItems, rightItems);
+        y += flow.getY() - before;
+    };
+    auto block = [&](int height) {
+        const juce::Rectangle<int> r(x, y, column_width, height);
+        y += height;
+        return r;
+    };
+    auto kicker = [&](const char* text) {
+        y += 26;
+        kickers_.emplace_back(text, block(kKickerHeight));
+        y += 12;
+    };
 
-    area.removeFromTop(12);
-    auto prompt_row = area.removeFromTop(60);
-    auto prompt_side = prompt_row.removeFromRight(200);
-    prompt_editor_.setBounds(prompt_row);
-    apply_prompt_button_.setBounds(prompt_side.removeFromTop(30).reduced(4, 2));
-    prompt_status_label_.setBounds(prompt_side.reduced(4, 2));
+    title_area_ = block(44);
+    y += 30;
 
-    area.removeFromTop(6);
-    auto buffer_row = area.removeFromTop(26);
-    buffer_label_.setBounds(buffer_row.removeFromLeft(150));
-    buffer_combo_.setBounds(buffer_row.removeFromLeft(280));
+    rig_area_ = block(kRigRowHeight * static_cast<int>(rig_rows_.size()));
+    y += 32;
 
-    area.removeFromTop(8);
-    auto intensity_row = area.removeFromTop(28);
-    intensity_label_.setBounds(intensity_row.removeFromLeft(150));
-    intensity_slider_.setBounds(intensity_row);
+    // Transport. PANIC and RECOVER are pulled to the right edge, away from everything else,
+    // so a mis-aimed click cannot hit them and a deliberate one always lands.
+    flowRow(46, {{&performance_button_, 210},
+                 {&start_button_, 96},
+                 {&stop_button_, 96},
+                 {&ai_band_toggle_, 104}},
+                {{&panic_button_, 170}, {&recover_button_, 150}});
 
-    area.removeFromTop(4);
-    auto level_row = area.removeFromTop(28);
-    level_label_.setBounds(level_row.removeFromLeft(150));
-    level_slider_.setBounds(level_row);
+    y += 10;
+    warning_label_.setBounds(block(36));
 
-    area.removeFromTop(8);
-    harmony_label_.setBounds(area.removeFromTop(26));
+    kicker("SONG");
+    flowRow(38, {{&load_song_button_, 150},
+                 {&edit_song_button_, 116},
+                 {&open_song_button_, 116},
+                 {&save_song_button_, 116},
+                 {&open_setlist_button_, 138}});
+    y += 6;
+    file_status_label_.setBounds(block(20));
 
-    if (keyboard_) keyboard_->setBounds(area.removeFromBottom(90));
-    area.removeFromBottom(8);
+    kicker("RIG");
+    flowRow(38, {{&load_button_, 126}, {&foot_control_button_, 146}});
 
-    area.removeFromTop(12);
-    auto lower = area;
-    diagnostics_viewport_.setBounds(lower.removeFromLeft(lower.getWidth() / 2));
-    lower.removeFromLeft(12);
-    if (device_selector_) device_selector_->setBounds(lower);
+    kicker("BAND");
+    {
+        auto row = block(64);
+        auto side = row.removeFromRight(210);
+        prompt_editor_.setBounds(row.withTrimmedRight(14));
+        apply_prompt_button_.setBounds(side.removeFromTop(34));
+        prompt_status_label_.setBounds(side.withTrimmedTop(4));
+    }
+
+    y += 18;
+    {
+        auto row = block(30);
+        buffer_label_.setBounds(row.removeFromLeft(kRowLabelWidth));
+        buffer_combo_.setBounds(row.removeFromLeft(300));
+    }
+    y += 10;
+    {
+        auto row = block(30);
+        intensity_label_.setBounds(row.removeFromLeft(kRowLabelWidth));
+        intensity_slider_.setBounds(row);
+    }
+    y += 8;
+    {
+        auto row = block(30);
+        level_label_.setBounds(row.removeFromLeft(kRowLabelWidth));
+        level_slider_.setBounds(row);
+    }
+
+    kicker("HARMONY");
+    harmony_label_.setBounds(block(26));
+    y += 10;
+    if (keyboard_ != nullptr) keyboard_->setBounds(block(92));
+
+    kicker("AUDIO DEVICE");
+    if (device_selector_ != nullptr) device_selector_->setBounds(block(300));
+
+    kicker("DIAGNOSTICS");
+    diagnostics_viewport_.setBounds(block(300));
+
+    // The Viewport scrolls whatever height the content declares, so the column can be as
+    // tall as it needs to be instead of fighting for pixels in a fixed window. That is the
+    // canvas's own behaviour: its SETUP screen is `overflow-y: auto`.
+    setup_content_.setSize(view_width, y + kContentPadBottom);
 }
 
 } // namespace ghostband::app

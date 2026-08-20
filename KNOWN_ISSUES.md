@@ -693,3 +693,46 @@ trend, and it was right not to conclude anything from them at the time.
 untouched demo song. Not tested on battery, not through an interface, and nothing was
 performed during it — no section changes, no harmony, no pedal. The pre-gig checklist in
 `STAGE_READINESS.md` asks for battery as well, and a set is not 55 minutes of one song.
+
+---
+
+## §23 — The design was a *shell*, and two passes restyled the contents instead
+
+**Status:** shell implemented, written but NOT COMPILED. Impact: cosmetic, but it consumed
+three rounds of work and one wrong diagnosis, which is worth recording as a method failure
+rather than a styling one.
+
+The `GhostBand · Standalone` canvas was implemented three times before it looked like
+itself.
+
+| Pass | What I changed | Why it still looked identical |
+|---|---|---|
+| 1 | Palette, vocabulary, copy | The old palette was already dark. Nothing moved. |
+| 2 | Typography (tracking, scale), a LookAndFeel | Right type, still in JUCE-shaped boxes. |
+| 3 | Layout: a nav shell, a hairline row list, chamfered outlined controls | — |
+
+The mistake in passes 1 and 2 was treating "the design" as a set of *attributes* — colour,
+face, tracking — applied to whatever structure already existed. What actually distinguishes
+the canvas is its **structure and its shapes**:
+
+- a persistent 68px application bar, with the screens hung inside it;
+- screens as one scrolling 880px column, not a window packed to its edges;
+- information as **hairline-separated rows on bare ground**, not as filled panels;
+- **outlined** controls, with exactly one filled primary per screen;
+- **chamfered** corners — two opposite corners cut — and not one rounded corner anywhere.
+
+Pass 2 had used a 6px corner *radius* throughout. That is not a near-miss of a chamfer; it
+is the wrong shape family, and it is the single detail that most made the result read as
+"a dark JUCE app" rather than as the design.
+
+**The check that would have caught it in one round:** before styling anything, extract the
+design's DOM and read its *layout* properties — `display`, `grid-template-columns`,
+`border`, `clip-path` — not its colours. Ten minutes of that produced pass 3. It was
+available before pass 1 and I did not do it.
+
+**What is still not implemented:** HOME and SETLISTS. Both are omitted from the nav rather
+than stubbed, because both need data the app does not have — see `StageHeader.h` and
+`docs/DESIGN_GAP_ANALYSIS.md` §1. The design's SETUP screen also has no audio-device
+picker at all, so GhostBand keeps JUCE's `AudioDeviceSelectorComponent` under an AUDIO
+DEVICE heading: a screen that matched the canvas exactly there would be a screen on which
+you cannot choose an output.

@@ -98,6 +98,7 @@ target_sources(GhostBand PRIVATE
     PerformanceView.cpp
     FootControlPanel.cpp
     GhostBandLookAndFeel.cpp
+    StageHeader.cpp
     SongEditorView.cpp
     GhostBandAudioEngine.cpp
     ../backend/Mrt2Backend.cpp
