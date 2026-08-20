@@ -81,22 +81,39 @@ void GhostBandLookAndFeel::drawButtonBackground(juce::Graphics& g, juce::Button&
                                                 bool shouldDrawButtonAsHighlighted,
                                                 bool shouldDrawButtonAsDown) {
     const auto bounds = button.getLocalBounds().toFloat().reduced(0.5f);
-    // Small chamfer for controls, larger for cards. The canvas uses 14px on its primary
-    // action and nothing rounded anywhere.
-    const auto path = chamferedRect(bounds, juce::jmin(12.0f, bounds.getHeight() * 0.3f));
 
     const bool primary = static_cast<bool>(button.getProperties()[prop::kPrimary]);
     const bool danger  = static_cast<bool>(button.getProperties()[prop::kDanger]);
 
+    // **Only the emphasised buttons are chamfered.** Checking the canvas again after the
+    // first build reached a screen: its secondary buttons carry `border: 1px solid #2C3036`
+    // and no `clip-path` at all — they are plain rectangles. Cutting every button turned a
+    // row of quiet controls into a row of arrows. The chamfer is emphasis, not decoration.
+    juce::Path path;
+    if (primary || danger) {
+        path = chamferedRect(bounds, juce::jmin(kControlChamfer, bounds.getHeight() * 0.28f));
+    } else {
+        path.addRectangle(bounds);
+    }
+
     if (primary || danger) {
         // The only filled buttons in the design. One inverted primary per screen, and
         // PANIC — which is filled because it must be findable without reading it.
-        auto fill = danger ? kPanicRed : kText;
-        if (shouldDrawButtonAsDown)             fill = fill.brighter(0.15f);
-        else if (shouldDrawButtonAsHighlighted) fill = fill.brighter(0.07f);
+        if (button.isEnabled()) {
+            auto fill = danger ? kPanicRed : kText;
+            if (shouldDrawButtonAsDown)             fill = fill.brighter(0.15f);
+            else if (shouldDrawButtonAsHighlighted) fill = fill.brighter(0.07f);
 
-        g.setColour(button.isEnabled() ? fill : fill.withAlpha(0.35f));
-        g.fillPath(path);
+            g.setColour(fill);
+            g.fillPath(path);
+            return;
+        }
+
+        // A disabled primary is drawn as an outline, not as a dimmed fill. A translucent
+        // light fill on a black ground reads as a solid grey slab — heavier than the live
+        // buttons beside it, which is the opposite of what disabled should look like.
+        g.setColour(kControlBorder.withAlpha(0.5f));
+        g.strokePath(path, juce::PathStrokeType(1.0f));
         return;
     }
 
@@ -121,6 +138,30 @@ void GhostBandLookAndFeel::drawButtonBackground(juce::Graphics& g, juce::Button&
                     ? (shouldDrawButtonAsHighlighted ? kControlBorderHover : kControlBorder)
                     : kControlBorder.withAlpha(0.4f));
     g.strokePath(path, juce::PathStrokeType(1.0f));
+}
+
+void GhostBandLookAndFeel::drawButtonText(juce::Graphics& g, juce::TextButton& button,
+                                          bool shouldDrawButtonAsHighlighted,
+                                          bool /*shouldDrawButtonAsDown*/) {
+    const bool primary = static_cast<bool>(button.getProperties()[prop::kPrimary]);
+    const bool danger  = static_cast<bool>(button.getProperties()[prop::kDanger]);
+
+    juce::Colour colour;
+    if (!button.isEnabled()) {
+        // kKicker rather than a faded version of the live colour: on a disabled primary the
+        // live colour is near-black, and fading it toward a black ground leaves nothing.
+        colour = kKicker;
+    } else if (danger) {
+        colour = juce::Colours::white;
+    } else if (primary) {
+        colour = kBackground;
+    } else {
+        colour = shouldDrawButtonAsHighlighted ? kText : kMuted;
+    }
+
+    g.setColour(colour);
+    g.setFont(getTextButtonFont(button, button.getHeight()));
+    g.drawText(button.getButtonText(), button.getLocalBounds(), juce::Justification::centred);
 }
 
 void GhostBandLookAndFeel::drawToggleButton(juce::Graphics& g, juce::ToggleButton& button,

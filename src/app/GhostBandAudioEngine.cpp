@@ -1,7 +1,9 @@
 // GhostBand — live AI accompaniment for singer-songwriters.
 // Copyright 2026 GhostBand contributors. Licensed under Apache-2.0.
 //
-// ⚠️ macOS-only, NEVER COMPILED as of this commit. See KNOWN_ISSUES.md §1.
+// ⚠️ macOS-only. Builds and runs on macOS/Apple Silicon; cannot be compiled on
+// this Linux development machine at all. See KNOWN_ISSUES.md §1 — which means any change
+// here is unverified until someone builds it on the Mac.
 
 #include "GhostBandAudioEngine.h"
 

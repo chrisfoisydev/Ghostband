@@ -1,7 +1,9 @@
 // GhostBand — live AI accompaniment for singer-songwriters.
 // Copyright 2026 GhostBand contributors. Licensed under Apache-2.0.
 //
-// ⚠️ macOS-only, NEVER COMPILED as of this commit. See KNOWN_ISSUES.md §1.
+// ⚠️ macOS-only. Builds and runs on macOS/Apple Silicon; cannot be compiled on
+// this Linux development machine at all. See KNOWN_ISSUES.md §1 — which means any change
+// here is unverified until someone builds it on the Mac.
 
 #include "MainComponent.h"
 
@@ -613,6 +615,13 @@ void MainComponent::refreshStatus() {
     recover_button_.setVisible(degraded);
     warning_label_.setText(warning, juce::dontSendNotification);
 
+    // The banner's row has no height when there is nothing to say, so its appearance and
+    // disappearance both change the layout below it.
+    if (warning.isNotEmpty() != warning_shown_) {
+        warning_shown_ = warning.isNotEmpty();
+        resized();
+    }
+
     // The numbers this spike exists to produce. Anything unmeasured says so explicitly
     // rather than showing a plausible-looking zero.
     juce::String d;
@@ -899,8 +908,12 @@ void MainComponent::resized() {
                  {&ai_band_toggle_, 104}},
                 {{&panic_button_, 170}, {&recover_button_, 150}});
 
-    y += 10;
-    warning_label_.setBounds(block(36));
+    if (warning_shown_) {
+        y += 10;
+        warning_label_.setBounds(block(36));
+    } else {
+        warning_label_.setBounds(block(0));
+    }
 
     kicker("SONG");
     flowRow(38, {{&load_song_button_, 150},

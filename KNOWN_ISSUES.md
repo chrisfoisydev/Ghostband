@@ -736,3 +736,38 @@ than stubbed, because both need data the app does not have — see `StageHeader.
 picker at all, so GhostBand keeps JUCE's `AudioDeviceSelectorComponent` under an AUDIO
 DEVICE heading: a screen that matched the canvas exactly there would be a screen on which
 you cannot choose an output.
+
+---
+
+## §24 — The shell landed; three findings from the first run that reached a screen
+
+**Status:** shell verified running on the M2 Pro (build 2026-08-20 08:48). The three fixes
+below are written, NOT COMPILED.
+
+Two rounds of "still looks exactly the same" after §23 were **not** a design problem. The
+binary was never rebuilt:
+
+1. The build command I supplied ended in a `#` comment. This shell is **zsh**, where
+   `interactive_comments` is off by default, so `#` is not a comment — `tail` received
+   `#`, `keep`, `this`, `output` as filenames, failed to open them, and exited. Closing the
+   pipe sent `cmake` SIGPIPE partway through the build, which died silently. `run.sh
+   --no-build` then launched the previous binary, which was 11 hours old.
+2. Nothing on screen said which binary was running, so the failure was indistinguishable
+   from a design that had not changed.
+
+Fixed by `scripts/check-build.sh` and by printing the executable's own link time on the
+setup screen. **Never put a `#` comment on a command line intended to be pasted into zsh.**
+
+Once it did run, three things were visibly wrong and none had been predictable from the
+source:
+
+| Finding | Cause | Fix |
+|---|---|---|
+| Headings and the wordmark were not condensed | Anton is not installed on macOS and the named fallback silently resolved to the system sans | Anton embedded via `juce_add_binary_data` (OFL-1.1, §5.1 of the notices) |
+| Every button was chamfered, turning quiet controls into a row of arrows | I applied the chamfer globally; the canvas puts `clip-path` only on the primary action and on cards — secondary buttons carry a border and no clip | Chamfer is now emphasis only |
+| Disabled PERFORMANCE MODE read as a heavy grey slab | A translucent light fill on black is a solid mid-grey — heavier than the live outlined buttons beside it | Disabled primary draws as an outline; `drawButtonText` picks the matching text colour |
+
+The pattern from §23 repeated in miniature: each of these is a property of the *rendered
+result*, not of the source, and the fallback comment in `StageType.h` even said the
+fallback had never been seen rendered. It had been sitting there, correctly flagged and
+unchecked, for two commits.

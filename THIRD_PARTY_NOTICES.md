@@ -84,6 +84,33 @@ Pulled in by upstream's `FetchContent`; we link the result. Not vendored by us.
 test harness is ~60 lines in `tests/TestMain.h`, written for this project, specifically to
 avoid adding a test-framework dependency and its notice obligations.
 
+### 5.1 Anton (font) — SIL Open Font License 1.1
+
+| | |
+|---|---|
+| Upstream | https://github.com/googlefonts/AntonFont |
+| Version | `Anton-Regular.ttf`, fetched 2026-08-20 from `google/fonts@main` |
+| In repo | `assets/fonts/AntonRegular.ttf`, licence at `assets/fonts/AntonRegular-OFL.txt` |
+| Licence | OFL-1.1 — © 2020 The Anton Project Authors |
+| How it ships | Embedded in the binary via `juce_add_binary_data` (`GhostBandData`) |
+
+Anton is the design canvas's display face and is **not installed on macOS**, so without
+bundling it every heading and the GHOSTBAND wordmark fell back to the system sans and
+rendered un-condensed.
+
+**OFL-1.1 obligations, and how each is met:**
+
+| Obligation | Status |
+|---|---|
+| Licence and copyright notice must travel with the font | ✅ `AntonRegular-OFL.txt` in the repo; this section in the notices |
+| May be bundled and redistributed, including embedded in a program | ✅ that is the only use here |
+| May not be sold on its own | ✅ not applicable |
+| Reserved Font Name must not be used for modified versions | ✅ the file is unmodified |
+
+The OFL's requirement is that the notice accompany the font, which embedding satisfies
+**only if the notice ships too** — so Anton must appear on the Credits screen described in
+§6, not merely in this file.
+
 ---
 
 ## 6. Attribution surface required in-product
@@ -94,6 +121,8 @@ Before any release, GhostBand must ship a Credits screen containing at minimum:
   under CC-BY-4.0." with links to both licences and to the model card.
 - The JUCE notice appropriate to the licence tier chosen (§3).
 - The generated transitive-dependency notice file (§4).
+- The Anton OFL-1.1 notice and copyright line (§5.1) — required, not optional, because the
+  font is embedded in the binary.
 
 ## 7. Open questions for legal
 

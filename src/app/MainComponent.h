@@ -1,7 +1,9 @@
 // GhostBand — live AI accompaniment for singer-songwriters.
 // Copyright 2026 GhostBand contributors. Licensed under Apache-2.0.
 //
-// ⚠️ macOS-only, NEVER COMPILED as of this commit. See KNOWN_ISSUES.md §1.
+// ⚠️ macOS-only. Builds and runs on macOS/Apple Silicon; cannot be compiled on
+// this Linux development machine at all. See KNOWN_ISSUES.md §1 — which means any change
+// here is unverified until someone builds it on the Mac.
 
 #pragma once
 
@@ -121,6 +123,14 @@ private:
     /// the previous binary in place and runnable. The executable's mtime cannot lie about
     /// either. Stage hardware shows its firmware version for the same reason.
     juce::String build_stamp_;
+
+    /// Whether the warning banner currently has text. The banner's row collapses to zero
+    /// height when empty — leaving a 36px hole under the transport row for the ~99% of the
+    /// time nothing is wrong put a visible gap in the middle of the screen. Tracked so that
+    /// a warning appearing or clearing triggers a re-layout; refreshStatus() rewrites the
+    /// text at 10 Hz but resized() only runs when something asks it to.
+    bool warning_shown_ = false;
+
     void paintSetup(juce::Graphics& g);
     /// Give a button the canvas's inverted or destructive treatment. See StageChrome.h.
     static void makePrimary(juce::TextButton& button);

@@ -22,19 +22,32 @@ namespace ghostband::app {
 /// JUCE expresses letter-spacing as `withExtraKerningFactor`, a proportion of the font
 /// height, which maps directly onto CSS `em` tracking.
 
-/// Display face. Anton in the design — a heavy condensed sans, which is also what
-/// `CLAUDE.md` specifies for the GHOSTBAND wordmark.
+/// Anton, bundled. Defined in StageFonts.cpp, which is the only file that needs BinaryData.
 ///
-/// Anton is not installed on macOS, and bundling it means a `BinaryData` blob plus an
-/// entry in `THIRD_PARTY_NOTICES.md` (it is OFL-1.1, so redistribution is fine). Until
-/// that is done, this asks for the closest condensed faces present on macOS and lets JUCE
-/// fall back. **The fallback has not been seen rendered** — if the display type does not
-/// look condensed on screen, the font is missing and bundling is the fix, not a different
-/// name.
+/// May return null if the embedded font fails to parse; `displayFont` handles that rather
+/// than letting a null typeface reach JUCE.
+juce::Typeface::Ptr displayTypeface();
+
+/// Display face. Anton — a heavy condensed sans, which is also what `CLAUDE.md` specifies
+/// for the GHOSTBAND wordmark.
+///
+/// **Anton is not installed on macOS.** The first version of this asked for
+/// "Helvetica Neue Condensed Black" by name and let JUCE fall back, with a comment saying
+/// the fallback had never been seen rendered. When it finally was, it was not condensed
+/// and barely bold — the headings and the wordmark came out as plain system sans, which
+/// was most of what still did not look like the design. Anton is now embedded
+/// (OFL-1.1; see `THIRD_PARTY_NOTICES.md`), so the display face is the design's face on
+/// every machine rather than whatever happens to be installed.
 inline juce::Font displayFont(float height, float tracking = 0.02f) {
-    juce::Font f{juce::FontOptions("Helvetica Neue Condensed Black", height,
-                                   juce::Font::bold)};
-    return f.withExtraKerningFactor(tracking);
+    const auto typeface = displayTypeface();
+    if (typeface == nullptr) {
+        // Embedded font unavailable: fall back loudly in shape rather than silently in
+        // name — bold system sans at least reads as display type.
+        return juce::Font{juce::FontOptions(height, juce::Font::bold)}
+            .withExtraKerningFactor(tracking);
+    }
+    return juce::Font{juce::FontOptions{}.withTypeface(typeface).withHeight(height)}
+        .withExtraKerningFactor(tracking);
 }
 
 /// Section and screen headings. 22px in the canvas, tracked 0.12em.

@@ -38,6 +38,14 @@ public:
                               bool shouldDrawButtonAsHighlighted,
                               bool shouldDrawButtonAsDown) override;
 
+    /// Button labels. Written out rather than inherited because a disabled *primary* is
+    /// drawn as an outline, and JUCE's default would then paint its dark-on-light text
+    /// colour onto the bare black ground — invisible. The treatment decides the text
+    /// colour, so both have to live in the same place.
+    void drawButtonText(juce::Graphics&, juce::TextButton&,
+                        bool shouldDrawButtonAsHighlighted,
+                        bool shouldDrawButtonAsDown) override;
+
     /// A square box with a filled square inside, rather than JUCE's tick. Matches the
     /// canvas, and reads better than a tick at the small sizes used here.
     void drawToggleButton(juce::Graphics&, juce::ToggleButton&,

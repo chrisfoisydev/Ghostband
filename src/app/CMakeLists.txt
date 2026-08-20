@@ -1,7 +1,8 @@
 # GhostBand — JUCE standalone host (macOS / Apple Silicon only).
 #
-# ⚠️ NEVER CONFIGURED OR COMPILED as of this commit — the development machine is Linux,
-# where MRT2 refuses to configure by design. See KNOWN_ISSUES.md §1.
+# ⚠️ Configures, builds and runs on macOS/Apple Silicon. It cannot be configured at all on
+# the Linux development machine, where MRT2 refuses by design — so every change here is
+# unverified until built on the Mac. See KNOWN_ISSUES.md §1.
 
 include(FetchContent)
 
@@ -82,6 +83,19 @@ endif()
 # on those FetchContent targets existing.
 add_subdirectory("${MAGENTA_RT_DIR}" "${CMAKE_BINARY_DIR}/magenta-rt" EXCLUDE_FROM_ALL)
 
+# --- Bundled fonts ------------------------------------------------------------
+#
+# Anton is the design canvas's display face and is NOT installed on macOS, so every
+# heading fell back to the system sans and the wordmark rendered un-condensed - which is
+# most of what "it does not look like the design" amounted to on the first run that
+# actually reached the screen.
+#
+# OFL-1.1 permits redistribution in a binary. The licence text ships beside the font and
+# is recorded in THIRD_PARTY_NOTICES.md; OFL requires the licence to travel with the font,
+# which embedding satisfies only if the notice does too.
+juce_add_binary_data(GhostBandData SOURCES
+    ${CMAKE_SOURCE_DIR}/assets/fonts/AntonRegular.ttf)
+
 # --- Application --------------------------------------------------------------
 juce_add_gui_app(GhostBand
     PRODUCT_NAME "GhostBand"
@@ -98,6 +112,7 @@ target_sources(GhostBand PRIVATE
     PerformanceView.cpp
     FootControlPanel.cpp
     GhostBandLookAndFeel.cpp
+    StageFonts.cpp
     StageHeader.cpp
     SongEditorView.cpp
     GhostBandAudioEngine.cpp
@@ -117,6 +132,7 @@ target_compile_definitions(GhostBand PRIVATE
 )
 
 target_link_libraries(GhostBand PRIVATE
+    GhostBandData
     ghostband_core
     magentart::core
     juce::juce_audio_utils
