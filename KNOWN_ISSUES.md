@@ -598,8 +598,13 @@ and "the file is missing" is evidence about *a path*, not about *a write*.
 
 **Second lesson, from the same session.** `moreThanOneInstanceAllowed()` returns false, so
 `open` on the .app silently focuses a running instance instead of launching the new build.
-Several rounds of testing ran against a stale binary because of it. Quit GhostBand before
-relaunching after a build, or `pkill -x GhostBand` first.
+It looks exactly like a build that did nothing. This caught us **four separate times**,
+including once where the binary had been compiled seconds earlier and the app on screen was
+still the old one.
+
+Use **`./scripts/run.sh`**, which builds, runs the core tests, quits any running instance,
+waits for it to release the audio device, and launches. It exists because the manual
+sequence is three commands and forgetting the middle one is invisible.
 
 ---
 
