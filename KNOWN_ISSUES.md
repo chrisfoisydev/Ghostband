@@ -595,3 +595,41 @@ and "the file is missing" is evidence about *a path*, not about *a write*.
 `open` on the .app silently focuses a running instance instead of launching the new build.
 Several rounds of testing ran against a stale binary because of it. Quit GhostBand before
 relaunching after a build, or `pkill -x GhostBand` first.
+
+---
+
+## 21. ✅ FIXED — the AI BAND toggle was invisible
+
+**Found on hardware, 2026-08-13: "It doesn't have an AI Band checkbox anymore."**
+
+The setup screen's first button row was laid out by hand in pixels. Adding EDIT SONG and
+the file-status line pushed the row past the window width:
+
+```
+available 932px, wanted 1050
+  PANIC     180 (right)   RECOVER 130 (right)
+  LOAD MODEL 130  LOAD DEMO SONG 150  PERFORMANCE MODE 170
+  START 90   STOP 90 -> squeezed to 82   AI BAND 110 -> 0
+```
+
+`Rectangle::removeFromLeft` on an exhausted rectangle returns a **zero-width rectangle**
+rather than failing. So the toggle was still constructed, still enabled, still "visible",
+and simply never drawn. The performer lost the band on/off switch with nothing on screen to
+suggest anything was wrong — a silent removal of a control, which is the same category of
+failure as `CLAUDE.md` rule 2's "a button that looks live and does nothing", inverted.
+
+**Fixed structurally, not by re-tuning.** A `layoutRow` helper flows controls left to right
+and **wraps to a new row when the next will not fit**, so a control that runs out of space
+moves down instead of disappearing. Right-edge items (PANIC, RECOVER) are placed first so
+PANIC keeps its isolated position however many buttons appear beside it.
+
+Rows were also rebalanced by purpose: row 1 is what gets reached for while the band plays
+(PERFORMANCE MODE / START / STOP / AI BAND, with RECOVER and PANIC at the right edge), row
+2 is setup (LOAD MODEL, LOAD DEMO SONG, EDIT SONG, OPEN SONG, OPEN SETLIST, SAVE SONG,
+FOOT CONTROL). Moving the two LOAD buttons down is what freed the space.
+
+**Process note.** This exact failure was predicted when the second button row was added —
+"the setup screen may now overflow" — and then dropped after the screen was reported as
+looking fine. The prediction was right and the follow-up was wrong: the overflow was
+horizontal, not the vertical squeeze that had been looked for. A predicted failure that has
+not been *specifically* checked is not a cleared one.

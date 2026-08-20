@@ -11,6 +11,9 @@
 #include "core/GhostBandConstants.h"
 #include "core/Logging.h"
 
+#include <utility>   // std::pair
+#include <vector>
+
 namespace ghostband::app {
 
 namespace {
@@ -62,6 +65,40 @@ juce::String setlistSummary(const GhostBandAudioEngine& engine) {
 namespace {
 constexpr int kDiagLineHeight = 17;
 constexpr float kDiagFontHeight = 13.0f;
+
+/// Lay out controls left to right, wrapping to a new row when the next will not fit.
+///
+/// Hand-tuned pixel rows silently swallowed the AI BAND toggle: a later feature added
+/// buttons to a row that was already full, and `removeFromLeft` on an exhausted rectangle
+/// returns a zero-width rectangle rather than complaining. The control stayed enabled and
+/// "visible" and was simply never drawn — the performer lost the band on/off switch with
+/// nothing on screen to suggest anything was wrong.
+///
+/// Wrapping makes that impossible: a control that does not fit moves down instead of
+/// disappearing. `area` is advanced past every row used.
+/// `rightItems` are placed against the right edge in the order given, before the left-hand
+/// flow starts, so a control that must never be crowded (PANIC) keeps its position however
+/// many buttons appear beside it.
+///
+/// Takes `area` rather than a pre-extracted row: wrapping has to be able to claim the next
+/// row from somewhere, and a row rectangle has no height left to give.
+void layoutRow(juce::Rectangle<int>& area, int rowHeight,
+               const std::vector<std::pair<juce::Component*, int>>& leftItems,
+               const std::vector<std::pair<juce::Component*, int>>& rightItems = {}) {
+    auto row = area.removeFromTop(rowHeight);
+
+    for (const auto& [component, width] : rightItems) {
+        if (component != nullptr) component->setBounds(row.removeFromRight(width).reduced(2));
+    }
+    for (const auto& [component, width] : leftItems) {
+        if (component == nullptr) continue;
+        if (row.getWidth() < width) {
+            area.removeFromTop(4);
+            row = area.removeFromTop(rowHeight);
+        }
+        component->setBounds(row.removeFromLeft(width).reduced(2));
+    }
+}
 } // namespace
 
 void DiagnosticsText::setContent(const juce::String& text, int viewWidth) {
@@ -658,24 +695,26 @@ void MainComponent::resized() {
     warning_label_.setBounds(area.removeFromTop(24));
     area.removeFromTop(8);
 
-    auto buttons = area.removeFromTop(40);
-    panic_button_.setBounds(buttons.removeFromRight(180).reduced(2));
-    recover_button_.setBounds(buttons.removeFromRight(130).reduced(2));
-    load_button_.setBounds(buttons.removeFromLeft(130).reduced(2));
-    load_song_button_.setBounds(buttons.removeFromLeft(150).reduced(2));
-    performance_button_.setBounds(buttons.removeFromLeft(170).reduced(2));
-    start_button_.setBounds(buttons.removeFromLeft(90).reduced(2));
-    stop_button_.setBounds(buttons.removeFromLeft(90).reduced(2));
-    ai_band_toggle_.setBounds(buttons.removeFromLeft(110).reduced(2));
+    // Row 1 — performance controls, the ones reached for while the band is playing.
+    // PANIC and RECOVER are pulled to the right edge, away from everything else, so a
+    // mis-aimed click cannot hit them and a deliberate one always lands.
+    layoutRow(area, 40,
+              {{&performance_button_, 170},
+               {&start_button_, 90},
+               {&stop_button_, 90},
+               {&ai_band_toggle_, 120}},
+              {{&panic_button_, 180}, {&recover_button_, 130}});
 
-    // Second row: setup-time controls that never need reaching for mid-song.
+    // Row 2 — setup, never needed mid-song. LOAD MODEL and LOAD DEMO SONG moved down here
+    // from row 1, which is what freed the space AI BAND had been squeezed out of.
     area.removeFromTop(4);
-    auto buttons2 = area.removeFromTop(34);
-    foot_control_button_.setBounds(buttons2.removeFromLeft(160).reduced(2));
-    edit_song_button_.setBounds(buttons2.removeFromLeft(120).reduced(2));
-    open_song_button_.setBounds(buttons2.removeFromLeft(130).reduced(2));
-    open_setlist_button_.setBounds(buttons2.removeFromLeft(140).reduced(2));
-    save_song_button_.setBounds(buttons2.removeFromLeft(130).reduced(2));
+    layoutRow(area, 34, {{&load_button_, 120},
+                         {&load_song_button_, 140},
+                         {&edit_song_button_, 110},
+                         {&open_song_button_, 110},
+                         {&open_setlist_button_, 130},
+                         {&save_song_button_, 110},
+                         {&foot_control_button_, 140}});
 
     area.removeFromTop(2);
     file_status_label_.setBounds(area.removeFromTop(22));
