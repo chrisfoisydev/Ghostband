@@ -158,7 +158,13 @@ regardless of anything else:
 | ACCOUNT / email | ❌ | no account system |
 | LICENSE / key / status / LOG OUT | ❌ | no licensing, no backend, no trial |
 
-**PANIC RELEASE 80 ms.** Currently 30 ms, with a 20–50 ms range recorded in
+**PANIC RELEASE — decided 2026-08-13: 30 ms stands, the design's 80 ms is not adopted.**
+The performer has now heard PANIC fire and judged it clean. 30 ms sits inside the brief's
+20–50 ms range and reaches silence faster, which is the point of the control. The design's
+80 ms is gentler but slower, and nothing observed suggests 30 ms clicks. Revisit only if a
+click is ever heard through a PA at volume — not to match a mock.
+
+The original note, kept for the reasoning: currently 30 ms, with a 20–50 ms range recorded in
 `ARCHITECTURE.md` §5 as the brief's requirement. The design says 80 ms. These disagree and
 someone should decide by ear — 80 ms is gentler and less likely to click, 30 ms gets to
 silence faster. This is a one-constant change either way, but it is a **stage-safety
