@@ -51,8 +51,33 @@ eventually fail them mid-song.
    chips that visibly compose a prompt rather than presenting as switches. Requires that
    the chips never look like on/off state.
 
-This decision needs making before the song builder is built, because it changes the shape
-of the screen.
+### How this gets settled: `scripts/instrument-removal-test.py`
+
+Arguing about it is not the way — `CLAUDE.md` says to build a minimal isolated experiment
+and choose from observed behaviour. The script does that:
+
+- Generates clips through `hello_mrt2` with and without "no <instrument>" in the prompt.
+- **Six trials per instrument**, because MRT2 is stochastic and one clip proves nothing.
+- **One control clip per instrument** with nothing removed. Without it there is no way to
+  separate "the prompt worked" from "that generation happened not to use piano anyway",
+  which is an easy and invalidating mistake.
+- **Blind**: clips are shuffled and named by index, with the answer key written to a file
+  the listener is asked not to open until scored. Knowing which clip is the "no piano" one
+  makes you hear its absence, and that effect is not small.
+- Tests DRUMS as well, which has the real API — so the result also calibrates how the
+  prompt route compares against the guaranteed one.
+
+**The threshold is committed before listening**, because a test without a pre-agreed bar
+is not a decision procedure, just listening followed by rationalising:
+
+| Removed | Verdict |
+|---|---|
+| ≥ 90% | Build as clearly-labelled "ASK THE BAND FOR" chips that visibly compose prompt text. **Never as switches** — even 9 in 10 fails on stage, where there is no recourse mid-song. |
+| 60–90% | Chips only if DRUMS is visually distinguished as the guaranteed one, with softer wording still. |
+| < 60% | **Drop the chips.** The DESCRIBE THE BAND field is better and is already honest about being a description. |
+
+Run it, listen, score, and record the numbers here. This decision needs making before the
+song builder is built, because it changes the shape of the screen.
 
 ---
 
