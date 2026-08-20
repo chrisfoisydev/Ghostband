@@ -6,6 +6,7 @@
 #include "PerformanceView.h"
 
 #include "StagePalette.h"
+#include "StageType.h"
 
 #include "core/ChordNamer.h"
 
@@ -19,8 +20,12 @@ namespace {
 
 // UI strings stay ASCII — see the note in MainComponent.cpp. On this screen it matters
 // more than anywhere else: it is read at a glance, mid-song, from a distance.
+// Kept as a thin shim so the many call sites below read unchanged, but every one of them
+// now goes through the tracked type system in StageType.h. The previous version applied no
+// letter-spacing, which is the single reason the first design pass looked identical to
+// what it replaced.
 juce::Font stageFont(float height, bool bold = true) {
-    return juce::Font(juce::FontOptions(height, bold ? juce::Font::bold : juce::Font::plain));
+    return bold ? displayFont(height) : valueFont(height);
 }
 
 } // namespace
@@ -151,7 +156,7 @@ void PerformanceView::drawSectionBlock(juce::Graphics& g, juce::Rectangle<int> a
     // Song title: present but subordinate. The performer knows what song they are in.
     auto title_row = area.removeFromTop(36);
     g.setColour(kStageDim);
-    g.setFont(stageFont(26.0f));
+    g.setFont(labelFont(14.0f));
     g.drawText(perf.hasSong() ? juce::String(perf.song()->title) : juce::String("NO SONG"),
                title_row, juce::Justification::centredLeft);
 
@@ -168,7 +173,7 @@ void PerformanceView::drawSectionBlock(juce::Graphics& g, juce::Rectangle<int> a
     // "NOW" from the design. One word, but it turns a bare name into an answer to the
     // question the performer is actually asking when they glance down.
     g.setColour(kStageDim);
-    g.setFont(stageFont(20.0f, false));
+    g.setFont(labelFont(12.0f));
     g.drawText("NOW", area.removeFromTop(22), juce::Justification::centredLeft);
 
     // The one thing that must be readable across a stage.
@@ -191,7 +196,7 @@ void PerformanceView::drawSectionBlock(juce::Graphics& g, juce::Rectangle<int> a
     // surprise return to the top mid-set is worse than showing nothing.
     const auto* next = perf.sections().peekNext();
     g.setColour(kStageDim);
-    g.setFont(stageFont(20.0f, false));
+    g.setFont(labelFont(12.0f));
     g.drawText("NEXT", area.removeFromTop(24), juce::Justification::centredLeft);
 
     g.setColour(next != nullptr ? kStageText : kStageDim);
@@ -205,7 +210,7 @@ void PerformanceView::drawSectionBlock(juce::Graphics& g, juce::Rectangle<int> a
     if (next == nullptr && engine_.hasSetlist()) {
         const auto* next_song = engine_.setlist().peekNext();
         g.setColour(kStageDim);
-        g.setFont(stageFont(24.0f, false));
+        g.setFont(labelFont(12.0f));
         g.drawText(next_song != nullptr
                        ? "THEN: " + juce::String(next_song->cachedTitle).toUpperCase()
                        : juce::String("END OF SET"),
@@ -224,7 +229,7 @@ void PerformanceView::drawFollowingRow(juce::Graphics& g, juce::Rectangle<int> a
     const juce::String chord(core::nameChord(sounding));
 
     g.setColour(kStageDim);
-    g.setFont(stageFont(20.0f, false));
+    g.setFont(labelFont(12.0f));
     g.drawText("FOLLOWING", area.removeFromTop(24), juce::Justification::centredLeft);
 
     g.setColour(sounding.empty() ? kStageDim : kStageText);
@@ -240,7 +245,7 @@ void PerformanceView::drawBandRow(juce::Graphics& g, juce::Rectangle<int> area) 
 
     auto label_row = area.removeFromTop(24);
     g.setColour(kStageDim);
-    g.setFont(stageFont(20.0f, false));
+    g.setFont(labelFont(12.0f));
     g.drawText("BAND", label_row, juce::Justification::centredLeft);
     g.drawText("BAND VOLUME  " + juce::String(engine_.outputLevelDb(), 1) + " dB",
                label_row, juce::Justification::centredRight);
@@ -259,7 +264,7 @@ void PerformanceView::drawBandRow(juce::Graphics& g, juce::Rectangle<int> area) 
     // decode; a bar is a position to glance at, which is all there is time for mid-song.
     auto bar = state_row.removeFromRight(state_row.getWidth() * 2 / 3).reduced(0, 14);
     g.setColour(kStageDim);
-    g.setFont(stageFont(14.0f, false));
+    g.setFont(labelFont(10.0f));
     g.drawText("SPARSE", bar.removeFromLeft(58), juce::Justification::centredLeft);
     g.drawText("FULL", bar.removeFromRight(40), juce::Justification::centredRight);
 
@@ -299,13 +304,13 @@ void PerformanceView::drawStatusRow(juce::Graphics& g, juce::Rectangle<int> area
         lights.push_back({"SOME SECTION CHANGES NOT INSTANT", kStageWarn});
     }
 
-    g.setFont(stageFont(18.0f, false));
+    g.setFont(labelFont(11.0f));
     int x = area.getX();
     for (const auto& light : lights) {
         g.setColour(light.colour);
         g.fillEllipse(static_cast<float>(x), static_cast<float>(area.getCentreY() - 5), 10.0f, 10.0f);
 
-        const int width = juce::GlyphArrangement::getStringWidthInt(stageFont(18.0f, false),
+        const int width = juce::GlyphArrangement::getStringWidthInt(labelFont(11.0f),
                                                                     light.text) + 34;
         g.setColour(kStageDim);
         g.drawText(light.text, x + 16, area.getY(), width, area.getHeight(),
@@ -327,7 +332,7 @@ void PerformanceView::paint(juce::Graphics& g) {
     drawStatusRow(g, area.removeFromBottom(28));
 
     g.setColour(kStageDim);
-    g.setFont(stageFont(15.0f, false));
+    g.setFont(labelFont(10.0f));
     g.drawText(pedal_legend_, area.removeFromBottom(22), juce::Justification::centredLeft);
 
     area.removeFromBottom(96);       // the button row, laid out in resized()
@@ -352,7 +357,7 @@ void PerformanceView::paint(juce::Graphics& g) {
         g.drawText("BAND STOPPED", banner.removeFromTop(56), juce::Justification::centred);
 
         g.setColour(kStageText);
-        g.setFont(stageFont(26.0f));
+        g.setFont(labelFont(16.0f));
         g.drawText("YOUR GUITAR AND VOCAL ARE CLEAR", banner.removeFromTop(34),
                    juce::Justification::centred);
     }

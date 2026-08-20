@@ -3,6 +3,7 @@
 //
 // ⚠️ macOS-only, NEVER COMPILED as of this commit. See KNOWN_ISSUES.md §1.
 
+#include "GhostBandLookAndFeel.h"
 #include "MainComponent.h"
 
 #include "core/Logging.h"
@@ -39,6 +40,11 @@ public:
     bool moreThanOneInstanceAllowed() override { return false; }
 
     void initialise(const juce::String&) override {
+        // Before any component is constructed, so nothing is ever built against the stock
+        // look. Owned by the application and cleared in shutdown() before the window is
+        // destroyed — a LookAndFeel must outlive every component using it.
+        juce::LookAndFeel::setDefaultLookAndFeel(&look_and_feel_);
+
         // Before the log sink, so the migration sees a clean destination and so the first
         // line written lands in the corrected location.
         ghostband::app::GhostBandAudioEngine::migrateSupportDirectory();
@@ -52,17 +58,22 @@ public:
     void shutdown() override {
         ghostband::core::Logger::instance().info(ghostband::core::LogCategory::System,
                                               "GhostBand shutting down");
+        // Window first, then the LookAndFeel it was using. The other order leaves
+        // components pointing at a destroyed object during their own teardown.
         main_window_ = nullptr;
+        juce::LookAndFeel::setDefaultLookAndFeel(nullptr);
     }
 
     void systemRequestedQuit() override { quit(); }
 
 private:
+    ghostband::app::GhostBandLookAndFeel look_and_feel_;
+
     class MainWindow : public juce::DocumentWindow {
     public:
         explicit MainWindow(const juce::String& name)
             : DocumentWindow(name,
-                             juce::Colour(0xff0e0f11),
+                             ghostband::app::kBackground,
                              DocumentWindow::allButtons) {
             setUsingNativeTitleBar(true);
             setContentOwned(new ghostband::app::MainComponent(), true);

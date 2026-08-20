@@ -242,7 +242,30 @@ Independent of any feature work:
 
 ## 5. Recommended order
 
-1. **Palette and typography.** Contained, no functionality implied. *(done)*
+1. **Palette and typography.** Contained, no functionality implied. *(palette done in the
+   first pass; typography and chrome missed entirely and done in a second — see below)*
+
+### What the first design pass got wrong
+
+The first pass changed the palette, the wording and the PANIC copy, and the result **looked
+identical** on screen. Two reasons, both worth recording:
+
+- **The typography is the design.** The canvas tracks nearly every label between 0.14em and
+  0.28em against a scale dominated by 10–13px, with display type jumping to 22–40px. Wide
+  tiny upper-case labels under big condensed display type *is* the visual identity. The
+  build had no letter-spacing anywhere and a flatter, larger scale. Changing colours while
+  leaving that alone changes almost nothing perceptible.
+- **Stock JUCE chrome was most of what was on screen.** Every `TextButton`, `Slider`,
+  `ComboBox` and `TextEditor` was drawing itself with JUCE's default appearance —
+  grey gradient buttons, round slider thumbs, untracked body type. Restyling the handful of
+  hand-drawn elements left the majority untouched. A `LookAndFeel` reaches all of it at
+  once, including components GhostBand never touches directly such as the audio device
+  selector.
+
+The underlying mistake was scoping the pass to "changes that imply no functionality that
+does not exist". That is a real constraint about not drawing fake controls, and it never
+implied leaving the visual language alone — restyling implies no capability whatsoever. The
+two were conflated, and the safe, valuable half went undone.
 2. **Failure and PANIC copy.** Pure improvement to the most important screen.
 3. **Rename to the design's vocabulary** — BAND INTENSITY, BAND VOLUME, FOLLOW RESPONSE.
 4. ~~**Restructure Performance Mode**~~ *(done — NOW label, FOLLOWING/chord moved onto the
