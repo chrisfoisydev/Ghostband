@@ -628,6 +628,8 @@ Rows were also rebalanced by purpose: row 1 is what gets reached for while the b
 2 is setup (LOAD MODEL, LOAD DEMO SONG, EDIT SONG, OPEN SONG, OPEN SETLIST, SAVE SONG,
 FOOT CONTROL). Moving the two LOAD buttons down is what freed the space.
 
+**Confirmed fixed on hardware, 2026-08-13.** The AI BAND toggle is back on the top row.
+
 **Process note.** This exact failure was predicted when the second button row was added —
 "the setup screen may now overflow" — and then dropped after the screen was reported as
 looking fine. The prediction was right and the follow-up was wrong: the overflow was
