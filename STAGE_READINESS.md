@@ -20,7 +20,7 @@ Legend: ✅ verified by execution · ⚠️ implemented but unverified · ❌ no
 | 5 | Section changes work | 🟡 | **confirmed by ear** on M2 Pro: Verse<->Chorus changes sound musical, arrangement moves with the section. Single song, short run. |
 | 6 | MIDI footswitch control works | 🟡 | **MIDI Learn confirmed working on M2 Pro (2026-08-13)**: LEARN bound a key, the action fired, logged end to end. Mapping also **survived `pkill`**, confirming §17 and §18 against real files. Via the on-screen keyboard — **no hardware pedal has ever been connected** — `KNOWN_ISSUES.md` §15 |
 | 7 | AI mute works | 🟡 | unit-tested + wired to AI BAND; audible path confirmed (peak -12.6 dBFS, RMS -20.1), mute itself not yet A/B'd |
-| 8 | **PANIC always works** | ⚠️ | fade **unit-tested**; wired to button + Escape; app reports 32.0 ms latency; not yet confirmed audibly |
+| 8 | **PANIC always works** | 🟡 | **confirmed audibly on M2 Pro (2026-08-13)** — Escape silenced the band. Fade unit-tested, app reports 32.0 ms. Not yet tested through a PA at performance volume, with a foot, or repeatedly — which is what "always" requires |
 | 9 | No persistent audio glitches | 🟡 | **0 underruns, 0 dropped frames, 0 absorbed by priming**; limiter never engaged (0.0 dB GR). No 60-min soak. |
 | 10 | No serious memory leak over 60 min | 🟡 | memory now measured; **1.16 GB baseline** with mrt2_small resident. 60-min trend not taken. |
 | 11 | Audio device reconnect handled gracefully | ❌ | Phase 4 |

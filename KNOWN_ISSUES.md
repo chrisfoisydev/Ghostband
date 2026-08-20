@@ -509,6 +509,11 @@ still have been absent, and the obvious conclusion would have been that the firs
 not worked. Worth remembering that one symptom had two independent causes stacked behind
 it, and the second was only exposed because the first was fixed.
 
+**PANIC confirmed audibly, 2026-08-13.** Pressing Escape with the band playing silenced
+it on an M2 Pro. The fade had been unit-tested since Phase 0 and never heard until now —
+it was the last completely unverified link in the failure philosophy, and the one control
+the whole design rests on.
+
 **Confirmed on hardware, 2026-08-13.** A mapping learnt on the FOOT CONTROL screen
 survived `pkill -x GhostBand` — a hard kill that skips `shutdown()` entirely. That is the
 stronger form of the test: it proves the save happens within 20 ms of the learn rather than
