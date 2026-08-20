@@ -606,6 +606,13 @@ Use **`./scripts/run.sh`**, which builds, runs the core tests, quits any running
 waits for it to release the audio device, and launches. It exists because the manual
 sequence is three commands and forgetting the middle one is invisible.
 
+**A related PATH trap on this machine:** `cmake` was symlinked out of the venv onto
+`/usr/local/bin` and `ctest` was not, so `cmake --build` works and `ctest` reports
+"command not found". The script now resolves the `cmake` symlink and looks for `ctest`
+beside it. A *missing* ctest warns and continues — the point of the script is to get the
+new binary on screen, and being unable to run the tests is a different thing from the tests
+failing. A test *failure* still stops it.
+
 ---
 
 ## 21. ✅ FIXED — the AI BAND toggle was invisible

@@ -16,11 +16,35 @@ cd "$(dirname "$0")/.."
 APP="build/src/app/GhostBand_artefacts/RelWithDebInfo/GhostBand.app"
 BIN="$APP/Contents/MacOS/GhostBand"
 
+# ctest usually lives beside cmake, but a PATH that has one need not have the other — on
+# this project cmake was symlinked out of a venv and ctest was not, so `ctest` was simply
+# missing while `cmake` worked fine.
+find_ctest() {
+    command -v ctest 2>/dev/null && return 0
+    local cmake_bin
+    cmake_bin="$(command -v cmake 2>/dev/null)" || return 1
+    local resolved
+    resolved="$(python3 -c 'import os,sys; print(os.path.realpath(sys.argv[1]))' "$cmake_bin")"
+    local candidate="$(dirname "$resolved")/ctest"
+    [[ -x "$candidate" ]] && echo "$candidate"
+}
+
 if [[ "${1:-}" != "--no-build" ]]; then
     echo "==> building"
     cmake --build build -j
-    echo "==> core tests"
-    ctest --test-dir build --output-on-failure
+
+    CTEST="$(find_ctest || true)"
+    if [[ -z "$CTEST" ]]; then
+        # A missing test runner must not stop the launch — the point of this script is to
+        # get the new binary in front of you, and being unable to *run* the tests is a
+        # different thing from the tests failing.
+        echo "==> core tests SKIPPED: ctest not found on PATH or beside cmake"
+        echo "    to fix: sudo ln -s \"\$(dirname \"\$(python3 -c 'import os,shutil;print(os.path.realpath(shutil.which(\"cmake\")))')\")/ctest\" /usr/local/bin/ctest"
+    else
+        echo "==> core tests"
+        # A test *failure* does stop here. That is the whole reason for running them.
+        "$CTEST" --test-dir build --output-on-failure
+    fi
 fi
 
 if [[ ! -x "$BIN" ]]; then
