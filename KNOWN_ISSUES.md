@@ -920,8 +920,9 @@ already reports it — it just has not been read while the big model was loaded.
 
 ## §28 — Adding a song to a setlist crashed the app (use-after-free)
 
-**Status:** fixed 2026-08-20, **fix not yet compiled**. Two bugs, one symptom, and a wrong
-diagnosis in between — recorded in full because the wrong diagnosis is the useful part.
+**Status:** fixed and **verified on hardware 2026-08-20** — adding a song reports the song's
+name and does not crash. Two bugs, one symptom, and a wrong diagnosis in between — recorded
+in full because the wrong diagnosis is the useful part.
 
 ### What actually crashed
 
