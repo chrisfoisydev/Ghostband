@@ -12,6 +12,7 @@
 #include "core/IGenerationBackend.h"
 #include "core/ControlLatency.h"
 #include "core/DeviceRecovery.h"
+#include "core/ModelCatalog.h"
 #include "core/IntensityMacro.h"
 #include "core/MidiHarmonyState.h"
 #include "core/MidiMapping.h"
@@ -277,6 +278,13 @@ public:
     /// True when the loaded backend actually generates music. False for NullBackend, in
     /// which case the UI must not claim an AI band is available.
     bool hasRealBackend() const noexcept;
+
+    /// What chip this machine has, as reported by the OS — e.g. `"Apple M2 Pro"`.
+    ///
+    /// Empty when it cannot be determined, which `core::realtimeVerdictFor` treats as
+    /// Unknown rather than guessing. Cached after the first call: it is a syscall and it
+    /// cannot change while the app is running.
+    static juce::String chipName();
 
     /// Non-empty when the device is not at 48 kHz — MRT2 generates 48 kHz and GhostBand does
     /// not resample, so this is surfaced rather than silently accepted.

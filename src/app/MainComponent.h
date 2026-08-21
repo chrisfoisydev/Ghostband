@@ -85,6 +85,12 @@ private:
     void refreshStatus();
     void applyPrompt();
     void loadModel();
+    /// The id currently chosen in `model_combo_`, e.g. `"mrt2_small"`.
+    juce::String selectedModelId() const;
+    /// Verdict for the current choice on this machine.
+    core::RealtimeVerdict selectedModelVerdict() const;
+    /// Rebuild the combo's item text and enabled state from what is on disk.
+    void refreshModelChoices();
 
     /// One line of the YOUR RIG list — the design's `grid-template-columns: 220px 1fr auto`
     /// row: a display-type heading, a quiet value, and a tracked status beside a lamp.
@@ -155,6 +161,20 @@ private:
     StageHeader header_;
     juce::Viewport setup_viewport_;
     SetupContent setup_content_;
+
+    /// Which model to load. Populated from `core::knownModels()`; entries that are not
+    /// installed on disk are listed but disabled, because "you do not have this yet" and
+    /// "this does not exist" are different facts and hiding the second one makes the first
+    /// look like a missing feature.
+    juce::ComboBox model_combo_;
+    juce::Label model_label_;
+    /// The consequence of the current choice on *this* machine, or empty when there is
+    /// nothing to warn about.
+    juce::Label model_note_;
+    /// A model upstream marks as not real-time here needs a second, deliberate press —
+    /// same shape as the editor's DISCARD CHANGES? confirmation, and for the same reason:
+    /// one modal-free barrier in front of a decision that ruins a gig.
+    bool confirming_slow_model_ = false;
 
     juce::TextButton load_button_{"LOAD MODEL"};
     juce::TextButton load_song_button_{"LOAD DEMO SONG"};

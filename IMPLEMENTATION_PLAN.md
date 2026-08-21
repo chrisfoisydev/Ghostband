@@ -129,7 +129,7 @@ cmake --build build -j && ctest --test-dir build --output-on-failure
 | 1.2 | MIDI note state → `set_note_on/off`, sustain pedal, all-notes-off | ✅ core done, **tested** (`MidiHarmonyState`) |
 | 1.3 | Chord naming for display (labels are display-only; MRT2 gets raw notes) | ✅ core done, **tested** (`ChordNamer`) |
 | 1.4 | Prompt editor + async encode status surfacing | ✅ APPLY PROMPT button, apply-on-focus-loss, applied/not-applied status (see KNOWN_ISSUES §13) |
-| 1.5 | AI on/off, output level, model selector, audio-device selector | ❌ — selector must **gate `mrt2_base` on hardware**; not real-time on M2 Pro (see MRT2_API_NOTES §1) |
+| 1.5 | AI on/off, output level, model selector, audio-device selector | 🟡 — AI on/off, output level and device selector work on hardware. Model selector written 2026-08-20, **not yet compiled**: `core::ModelCatalog` encodes upstream's capability table (50 checks), the chip comes from `machdep.cpu.brand_string`, and `mrt2_base` on an M2 Pro needs a second deliberate press. Never exercised — `mrt2_base` is not downloaded on the dev machine |
 | 1.6 | `IntensityMacro` (see `ARCHITECTURE.md` §6) + retuning on real audio | ✅ **works on hardware** — audible, usable across the range. Fine-tuning deferred until section presets exist |
 | 1.7 | On-screen / computer-key keyboard, so harmony is testable without hardware | ✅ **works** |
 | 1.8 | Measure and characterise harmony latency | ✅ transport latency computed from live buffer state and shown in diagnostics; generation buffer selectable 1-3 frames to trade latency against margin |

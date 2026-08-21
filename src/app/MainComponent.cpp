@@ -176,6 +176,26 @@ MainComponent::MainComponent() {
     // the content's height and the viewport's.
     setup_content_.onPaint = [this](juce::Graphics& g) { paintSetup(g); };
 
+    setup_content_.addAndMakeVisible(model_label_);
+    model_label_.setText("MODEL", juce::dontSendNotification);
+    model_label_.setColour(juce::Label::textColourId, kKicker);
+    model_label_.setFont(labelFont(11.0f));
+
+    setup_content_.addAndMakeVisible(model_combo_);
+    refreshModelChoices();
+    model_combo_.onChange = [this] {
+        // Changing the choice cancels a pending confirmation. Otherwise picking the slow
+        // model, thinking better of it, and picking the fast one would leave the button
+        // armed to load whatever is selected on the next press.
+        confirming_slow_model_ = false;
+        load_button_.setButtonText("LOAD MODEL");
+        refreshStatus();
+    };
+
+    setup_content_.addAndMakeVisible(model_note_);
+    model_note_.setColour(juce::Label::textColourId, kWarn);
+    model_note_.setFont(valueFont(12.0f));
+
     setup_content_.addAndMakeVisible(load_button_);
     load_button_.onClick = [this] { loadModel(); };
 
@@ -391,11 +411,79 @@ juce::File MainComponent::defaultModelPath(const juce::String& modelName) {
         .getChildFile(modelName + ".mlxfn");
 }
 
+juce::String MainComponent::selectedModelId() const {
+    const auto& models = core::knownModels();
+    const int index = model_combo_.getSelectedId() - 1;   // ids are 1-based
+    if (index < 0 || index >= static_cast<int>(models.size())) {
+        return "mrt2_small";   // the live default, and the only safe fallback
+    }
+    return juce::String(models[static_cast<std::size_t>(index)].id);
+}
+
+core::RealtimeVerdict MainComponent::selectedModelVerdict() const {
+    return core::realtimeVerdictFor(GhostBandAudioEngine::chipName().toStdString(),
+                                    selectedModelId().toStdString());
+}
+
+void MainComponent::refreshModelChoices() {
+    model_combo_.clear(juce::dontSendNotification);
+
+    const auto& models = core::knownModels();
+    for (int i = 0; i < static_cast<int>(models.size()); ++i) {
+        const auto& model = models[static_cast<std::size_t>(i)];
+        const bool installed = defaultModelPath(juce::String(model.id)).exists();
+        const auto verdict =
+            core::realtimeVerdictFor(GhostBandAudioEngine::chipName().toStdString(), model.id);
+
+        juce::String text = juce::String(model.displayName) + "  -  "
+                          + juce::String(model.sizeLabel);
+        if (!installed) {
+            // Listed but unusable, and told why. Hiding it would make a model the
+            // performer has heard of look like a missing feature rather than a download.
+            text += "  (not installed)";
+        } else if (verdict != core::RealtimeVerdict::Yes) {
+            text += "  (" + juce::String(core::verdictLabel(verdict)) + ")";
+        }
+
+        model_combo_.addItem(text, i + 1);
+        model_combo_.setItemEnabled(i + 1, installed);
+    }
+
+    // Prefer whatever is loaded; otherwise the first installed model; otherwise the first
+    // item, so the combo is never blank.
+    int wanted = 1;
+    for (int i = 0; i < static_cast<int>(models.size()); ++i) {
+        if (defaultModelPath(juce::String(models[static_cast<std::size_t>(i)].id)).exists()) {
+            wanted = i + 1;
+            break;
+        }
+    }
+    model_combo_.setSelectedId(wanted, juce::dontSendNotification);
+}
+
 void MainComponent::loadModel() {
-    // Phase 0 loads mrt2_small — the model the brief designates as the live default
-    // ("Performance"). Model selection UI arrives in Phase 1.
+    const juce::String model_id = selectedModelId();
+    const auto verdict = selectedModelVerdict();
+
+    // A model upstream marks as not real-time on this machine loads only on a second,
+    // deliberate press. It is not blocked — it genuinely works for rehearsal, and refusing
+    // would be the app overruling the performer — but it must not be one careless click
+    // away at soundcheck. Same shape as the editor's DISCARD CHANGES? confirmation.
+    if (core::needsConfirmation(verdict) && !confirming_slow_model_) {
+        confirming_slow_model_ = true;
+        load_button_.setButtonText("LOAD ANYWAY?");
+        warning_label_.setText(
+            juce::String(core::verdictExplanation(verdict,
+                                                  GhostBandAudioEngine::chipName().toStdString(),
+                                                  model_id.toStdString())),
+            juce::dontSendNotification);
+        return;
+    }
+    confirming_slow_model_ = false;
+    load_button_.setButtonText("LOAD MODEL");
+
     const juce::File resources = defaultResourceDir();
-    const juce::File model = defaultModelPath("mrt2_small");
+    const juce::File model = defaultModelPath(model_id);
 
     load_button_.setEnabled(false);
     // The MODEL rig row reports progress now; refreshStatus() reads engine state, so a
@@ -404,6 +492,7 @@ void MainComponent::loadModel() {
 
     engine_.loadModelAsync(resources, model, [this](bool ok, juce::String error) {
         load_button_.setEnabled(true);
+        refreshModelChoices();
         if (!ok) {
             warning_label_.setText(error, juce::dontSendNotification);
         } else {
@@ -641,6 +730,18 @@ void MainComponent::refreshStatus() {
                   "unaffected. Press RECOVER BAND when stable.";
     }
 
+    // What the current model choice means on this machine. Empty when the answer is
+    // "it works", because a control that explains itself when there is nothing to explain
+    // trains people to stop reading it.
+    const auto model_verdict = selectedModelVerdict();
+    model_note_.setText(
+        juce::String(core::verdictExplanation(model_verdict,
+                                              GhostBandAudioEngine::chipName().toStdString(),
+                                              selectedModelId().toStdString())),
+        juce::dontSendNotification);
+    model_note_.setColour(juce::Label::textColourId,
+                          model_verdict == core::RealtimeVerdict::No ? kFault : kWarn);
+
     // The device outranks everything above it. A 48 kHz notice is not worth reading while
     // there is no output at all, and the engine error that a dropout produces describes a
     // symptom rather than the cause.
@@ -671,7 +772,14 @@ void MainComponent::refreshStatus() {
     juce::String d;
     d << "Build                 " << build_stamp_.fromFirstOccurrenceOf(" ", false, false)
                                   << "\n"
-      << "Model                 " << snap.modelName << "\n"
+      << "Machine               " << (GhostBandAudioEngine::chipName().isEmpty()
+                                        ? juce::String("unknown")
+                                        : GhostBandAudioEngine::chipName()) << "\n"
+      << "Model                 " << snap.modelName
+                                  << "   real-time here: "
+                                  << core::verdictLabel(core::realtimeVerdictFor(
+                                         GhostBandAudioEngine::chipName().toStdString(),
+                                         snap.modelName)) << "\n"
       << "State                 " << toString(state) << "\n"
       << "Streaming             " << (state == core::EngineState::Running ? "Active" : "Stopped") << "\n"
       << "Prompt                " << promptStatusText(engine_.promptStatus()) << "\n"
@@ -831,7 +939,25 @@ bool MainComponent::updateRigRows() {
     if (state == core::EngineState::Loading) {
         next[0] = {"MODEL", "loading...", "LOADING", kWarn};
     } else if (engine_.hasRealBackend()) {
-        next[0] = {"MODEL", snap.modelName, "LOADED", kOk};
+        // Name it the way the performer chose it, not the way upstream files it. The raw
+        // id stays in the diagnostics panel for anyone who needs it.
+        const auto* info = core::findModel(snap.modelName);
+        const juce::String shown = info != nullptr
+                                       ? juce::String(info->displayName) + "  ("
+                                             + juce::String(snap.modelName) + ")"
+                                       : juce::String(snap.modelName);
+        const auto loaded_verdict =
+            core::realtimeVerdictFor(GhostBandAudioEngine::chipName().toStdString(),
+                                     snap.modelName);
+        // A model that is loaded but cannot keep up here is not a green light. This is the
+        // row someone glances at before walking on stage.
+        next[0] = {"MODEL", shown,
+                   loaded_verdict == core::RealtimeVerdict::No
+                       ? juce::String(core::verdictLabel(loaded_verdict))
+                       : juce::String("LOADED"),
+                   loaded_verdict == core::RealtimeVerdict::No     ? kFault
+                   : loaded_verdict == core::RealtimeVerdict::Unknown ? kWarn
+                                                                     : kOk};
     } else {
         next[0] = {"MODEL", "no model loaded", "NONE", kKicker};
     }
@@ -984,6 +1110,14 @@ void MainComponent::resized() {
     file_status_label_.setBounds(block(20));
 
     kicker("RIG");
+    {
+        auto row = block(30);
+        model_label_.setBounds(row.removeFromLeft(kRowLabelWidth));
+        model_combo_.setBounds(row.removeFromLeft(320));
+    }
+    y += 6;
+    model_note_.setBounds(block(20));
+    y += 8;
     flowRow(38, {{&load_button_, 126}, {&foot_control_button_, 146}});
 
     kicker("BAND");

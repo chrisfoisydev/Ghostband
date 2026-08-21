@@ -17,6 +17,10 @@
 
 #include <mach/mach.h>
 
+#if JUCE_MAC
+#include <sys/sysctl.h>   // chipName()
+#endif
+
 namespace ghostband::app {
 
 using core::LogCategory;
@@ -994,6 +998,27 @@ juce::String GhostBandAudioEngine::sampleRateWarning() const {
     if (sr <= 0.0 || sr == static_cast<double>(core::kSampleRate)) return {};
     return "Device is at " + juce::String(sr, 0) + " Hz. MRT2 generates 48 000 Hz and "
            "GhostBand does not resample - set the interface to 48 kHz.";
+}
+
+juce::String GhostBandAudioEngine::chipName() {
+    // Cached: sysctlbyname is a syscall, this is read on every UI refresh, and the answer
+    // cannot change while the process is alive.
+    static const juce::String cached = [] () -> juce::String {
+#if JUCE_MAC
+        char buffer[256] = {};
+        std::size_t size = sizeof(buffer) - 1;
+        if (sysctlbyname("machdep.cpu.brand_string", buffer, &size, nullptr, 0) != 0) {
+            return {};
+        }
+        // Reported strings have carried trailing NULs and padding. core::normaliseChip
+        // handles that, but trimming here keeps the UI text clean too.
+        return juce::String(buffer).trim();
+#else
+        // Not macOS: there is no MRT2 here anyway, and claiming a chip would be a lie.
+        return {};
+#endif
+    }();
+    return cached;
 }
 
 double GhostBandAudioEngine::residentMemoryGb() {

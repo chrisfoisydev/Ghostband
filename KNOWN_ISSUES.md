@@ -862,3 +862,45 @@ mid-song, confirm the stage screen reads `NO AUDIO OUTPUT / YOUR GUITAR AND VOCA
 it comes back **on that interface and not the laptop speakers**, that the banner changes to
 `AUDIO IS BACK`, and that the band stays silent until RESUME is pressed. Then repeat with
 PANIC pressed first, and confirm RESUME does not release it.
+
+---
+
+## §27 — The model selector gates `mrt2_base`, and has never selected it
+
+**Status:** written 2026-08-20, core tested, **app path unexercised** — `mrt2_base` is not
+downloaded on the development machine, so the interesting branch has never run.
+
+Until now `LOAD MODEL` hard-coded `mrt2_small`. That was honest but limiting: `mrt2_base`
+exists, is much better, and is genuinely usable for rehearsal on this hardware — it simply
+cannot keep up live.
+
+**What the gate does.** `core::ModelCatalog` encodes upstream's table verbatim
+(`docs/MRT2_API_NOTES.md` §1) and answers one question: can *this* chip run *this* model in
+real time? The M2 Pro this project is developed on is listed ❌ for `mrt2_base`, so choosing
+it turns `LOAD MODEL` into `LOAD ANYWAY?` and puts the consequence on screen in words —
+"it will load and play, but the band will break up continuously. Rehearsal only." It is
+never blocked. Refusing outright would be the app overruling the performer about their own
+machine, and the model does work for what a rehearsal needs.
+
+**Three judgement calls worth recording:**
+
+1. **An unlisted chip is `Unknown`, not `Yes`.** Ultras are genuinely absent from upstream's
+   table. Reasoning "an M2 Ultra is at least an M2 Max" is an inference about somebody's
+   gig, and the project rule is that upstream source beats inference. Unknown gets a
+   "NOT VERIFIED" label and a "try it at soundcheck" note, but no barrier.
+
+2. **A bare `Apple M4` is treated as entry-level.** Upstream lists Airs by machine
+   ("M4 Air") but `machdep.cpu.brand_string` reports the chip, so an Air never matches by
+   name. This is the one place the table is extended beyond what upstream wrote, and it
+   errs toward warning — the failure mode is telling a Mac mini owner their machine may
+   struggle when it might not, rather than telling an Air owner it will be fine when it
+   will not.
+
+3. **Models that are not installed are listed and disabled, not hidden.** "You have not
+   downloaded this" and "this does not exist" are different facts, and hiding the second
+   makes the first look like a missing feature.
+
+**What has NOT been tested:** selecting `mrt2_base` at all. It is not on disk here, so the
+disabled-item path, the confirmation, and the red `TOO SLOW HERE` status in the MODEL rig
+row have only ever been reasoned about. Downloading it (`mrt models download mrt2_base`,
+several GB) and choosing it is the test.
