@@ -297,6 +297,10 @@ void GhostBandAudioEngine::performAction(core::PerformanceAction action) {
             break;
         case PerformanceAction::NextSong:        nextSong(); break;
         case PerformanceAction::PreviousSong:    previousSong(); break;
+        // No-ops outside Song Map, deliberately: a footswitch that does nothing surprising
+        // in MIDI mode is better than one that reports an error mid-song.
+        case PerformanceAction::NextChord:       songMapAdvance(); break;
+        case PerformanceAction::PreviousChord:   songMapRetreat(); break;
         // Already latched on the MIDI thread. This pass is idempotent and adds the work
         // that does not belong there: muting the backend, releasing notes, logging.
         case PerformanceAction::Panic:           panic(); return;
@@ -343,6 +347,7 @@ bool GhostBandAudioEngine::activateSong(const core::Song& song) {
 
     // The song's prompt now owns the slots, so the free-play prompt no longer applies.
     base_prompt_ = juce::String(loaded_song_.defaultStylePrompt);
+    resyncSongMap();
     updateAiAudible();
     return true;
 }
@@ -355,6 +360,87 @@ bool GhostBandAudioEngine::loadSong(const core::Song& song) {
 }
 
 void GhostBandAudioEngine::loadDemoSong() { loadSong(core::makeDemoSong()); }
+
+bool GhostBandAudioEngine::songMapActive() const noexcept {
+    return loaded_song_.harmonySource == core::HarmonySource::SongMap && song_map_.isActive();
+}
+
+void GhostBandAudioEngine::resyncSongMap() {
+    // Leaving Song Map, or arriving at a song that does not use it, must not leave a chord
+    // ringing that nothing is steering any more.
+    if (!performance_.hasSong()
+        || loaded_song_.harmonySource != core::HarmonySource::SongMap) {
+        song_map_.stop();
+        releaseSongMapChord();
+        return;
+    }
+
+    const auto* section = performance_.sections().current();
+    if (section == nullptr) {
+        song_map_.stop();
+        releaseSongMapChord();
+        return;
+    }
+
+    const bool usable = song_map_.loadSection(*section);
+    if (!usable) {
+        // A Song Map section with no chord that parses steers nothing at all rather than
+        // steering badly. The performer sees the rejected symbols in the editor; the band
+        // simply holds nothing here.
+        releaseSongMapChord();
+        Logger::instance().warn(LogCategory::Generation,
+                                "song map section has no playable chords",
+                                {{"section", section->name}});
+        return;
+    }
+
+    if (song_map_.hasRejectedChords()) {
+        Logger::instance().warn(LogCategory::Generation,
+                                "song map section has unreadable chords",
+                                {{"section", section->name},
+                                 {"count", std::to_string(song_map_.rejectedIndices().size())}});
+    }
+
+    song_map_.start();
+    pushSongMapChord();
+}
+
+void GhostBandAudioEngine::pushSongMapChord() {
+    const auto& notes = song_map_.currentNotes();
+    // An empty chord means the symbol did not parse. Skip the change entirely so the band
+    // holds what it was playing — passing this to SoundingChord would release everything
+    // and drop the accompaniment to nothing on a typo.
+    if (notes.empty()) return;
+
+    const auto change = song_map_sounding_.moveTo(notes);
+    if (backend_ == nullptr) return;
+
+    // Stops before starts, so a chord change never briefly sounds both chords.
+    for (int note : change.toStop)  backend_->noteOff(note);
+    for (int note : change.toStart) backend_->noteOn(note);
+}
+
+void GhostBandAudioEngine::releaseSongMapChord() {
+    const auto change = song_map_sounding_.clear();
+    if (backend_ == nullptr) return;
+    for (int note : change.toStop) backend_->noteOff(note);
+}
+
+void GhostBandAudioEngine::songMapAdvance() {
+    if (!songMapActive()) return;
+    if (song_map_.advance()) pushSongMapChord();
+}
+
+void GhostBandAudioEngine::songMapRetreat() {
+    if (!songMapActive()) return;
+    if (song_map_.retreat()) pushSongMapChord();
+}
+
+void GhostBandAudioEngine::songMapRestart() {
+    if (!songMapActive()) return;
+    song_map_.restart();
+    pushSongMapChord();
+}
 
 bool GhostBandAudioEngine::nextSection() {
     if (!performance_.goToNext()) return false;
@@ -589,6 +675,20 @@ void GhostBandAudioEngine::timerCallback() {
     // Footswitch presses land here rather than on the MIDI thread, where a section change
     // would mean touching the backend and the song model from a device callback.
     drainPerformanceActions();
+
+    // A section change reloads the chart. Polled off the controller's change counter
+    // rather than delivered by a callback: a counter cannot be missed if a tick is late,
+    // and it costs one comparison per tick.
+    if (performance_.sections().changeCount() != last_section_change_seen_) {
+        last_section_change_seen_ = performance_.sections().changeCount();
+        resyncSongMap();
+    }
+
+    // The chart moves on its own only when the section carries a tempo. See
+    // core::SongMapPlayer on why GhostBand never invents one.
+    if (song_map_.isRunning() && song_map_.tick(delta)) {
+        pushSongMapChord();
+    }
 
     // A mapping learnt on the MIDI thread is written here, for the same reason: the learn
     // itself must not touch the filesystem. Within 20 ms of the press, so a performer who
@@ -934,12 +1034,21 @@ void GhostBandAudioEngine::panic() {
     // 2. Belt and braces, best-effort, off the critical path.
     backend_->setMute(true);
     harmony_.allNotesOff();
+    // The chart holds notes that `harmony_` knows nothing about, so allNotesOff alone
+    // would leave a Song Map chord still pressed against a muted backend — and release
+    // would bring it straight back.
+    song_map_.stop();
+    releaseSongMapChord();
 }
 
 void GhostBandAudioEngine::clearPanic() {
     output_stage_.clearPanic();
     performer_panic_ = false;
     backend_->setMute(false);
+    // PANIC stopped the chart and released its notes. Releasing PANIC has to put it back,
+    // or Song Map would come out of a PANIC silent with no way to restart it short of a
+    // section change.
+    resyncSongMap();
     Logger::instance().info(LogCategory::Panic, "PANIC released");
 }
 

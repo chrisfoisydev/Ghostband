@@ -212,4 +212,18 @@ bool SongEditor::setSectionChords(int index, const std::vector<std::string>& cho
     return true;
 }
 
+bool SongEditor::setSectionTempoBpm(int index, std::optional<double> bpm) {
+    if (index < 0 || index >= sectionCount()) return false;
+
+    // Refused, not clamped. A typo'd 1200 silently becoming 300 hands the performer a
+    // tempo they did not choose, with nothing on screen to say so.
+    if (bpm.has_value() && (*bpm < 20.0 || *bpm > 300.0)) return false;
+
+    auto& s = song_.sections[static_cast<std::size_t>(index)];
+    if (s.tempoBpm == bpm) return true;
+    pushUndo();
+    s.tempoBpm = bpm;
+    return true;
+}
+
 } // namespace ghostband::core

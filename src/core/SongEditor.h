@@ -7,6 +7,7 @@
 #include "Song.h"
 
 #include <cstddef>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -75,6 +76,17 @@ public:
     bool setSectionTransitionMs(int index, int ms);
     bool setSectionNotes(int index, const std::string& notes);
     bool setSectionChords(int index, const std::vector<std::string>& chords);
+
+    /// Set or clear a section's tempo.
+    ///
+    /// `std::nullopt` clears it, and clearing is a real musical choice rather than a
+    /// missing value: a section with no tempo puts Song Map into `Manual`, where the chart
+    /// moves only when the performer says so. See `core::SongMapPlayer`.
+    ///
+    /// A tempo outside 20..300 BPM is refused rather than clamped. Clamping a typo'd 1200
+    /// to 300 would give the performer a tempo they did not ask for and no sign anything
+    /// was wrong.
+    bool setSectionTempoBpm(int index, std::optional<double> bpm);
     /// @}
 
     /// @name Undo

@@ -424,4 +424,39 @@ TEST("a song built entirely from scratch is performable and saveable") {
     CHECK_EQ(static_cast<int>(restored.sections.size()), 2);
 }
 
+TEST("a section tempo can be set, and cleared as a musical choice") {
+    auto e = emptyEditor();
+    addNamed(e, "Verse");
+
+    CHECK(e.setSectionTempoBpm(0, 96.0));
+    CHECK(e.song().sections[0].tempoBpm.has_value());
+    CHECK(*e.song().sections[0].tempoBpm == 96.0);
+
+    // Clearing is not "missing": no tempo puts Song Map into Manual, where the chart moves
+    // only when the performer says so.
+    CHECK(e.setSectionTempoBpm(0, std::nullopt));
+    CHECK(!e.song().sections[0].tempoBpm.has_value());
+}
+
+TEST("an out-of-range tempo is refused, not clamped") {
+    // Clamping a typo'd 1200 to 300 would hand the performer a tempo they did not ask for.
+    auto e = emptyEditor();
+    addNamed(e, "Verse");
+    e.setSectionTempoBpm(0, 120.0);
+
+    CHECK(!e.setSectionTempoBpm(0, 1200.0));
+    CHECK(!e.setSectionTempoBpm(0, 0.0));
+    CHECK(!e.setSectionTempoBpm(0, -60.0));
+    CHECK(*e.song().sections[0].tempoBpm == 120.0);   // untouched
+
+    CHECK(e.setSectionTempoBpm(0, 20.0));             // the edges are allowed
+    CHECK(e.setSectionTempoBpm(0, 300.0));
+}
+
+TEST("tempo on a section that does not exist is refused") {
+    auto e = emptyEditor();
+    CHECK(!e.setSectionTempoBpm(0, 120.0));
+    CHECK(!e.setSectionTempoBpm(-1, 120.0));
+}
+
 TEST_MAIN_END()

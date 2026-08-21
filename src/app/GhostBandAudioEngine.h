@@ -13,6 +13,8 @@
 #include "core/ControlLatency.h"
 #include "core/DeviceRecovery.h"
 #include "core/ModelCatalog.h"
+#include "core/SongMapPlayer.h"
+#include "core/SoundingChord.h"
 #include "core/IntensityMacro.h"
 #include "core/MidiHarmonyState.h"
 #include "core/MidiMapping.h"
@@ -290,6 +292,24 @@ public:
     /// not resample, so this is surfaced rather than silently accepted.
     juce::String sampleRateWarning() const;
 
+    /// @name Song Map
+    ///
+    /// Harmony driven by the section's chord chart rather than by what the performer is
+    /// holding. Only active when the loaded song's `harmonySource` is `SongMap`; in every
+    /// other mode the player is stopped and nothing it holds is sounding.
+    /// @{
+    const core::SongMapPlayer& songMap() const noexcept { return song_map_; }
+    /// True when the loaded song asks for Song Map **and** the current section has at
+    /// least one chord that parses. Both halves matter: a Song Map song whose section is
+    /// empty must steer nothing rather than steer badly.
+    bool songMapActive() const noexcept;
+    /// Move the chart by hand. Safe to call in any mode — a no-op when Song Map is not
+    /// running, so a footswitch bound to it cannot do anything surprising in MIDI mode.
+    void songMapAdvance();
+    void songMapRetreat();
+    void songMapRestart();
+    /// @}
+
     /// @name Audio device loss and recovery
     ///
     /// An interface being unplugged, a sleep/wake, a hub browning out — expected runtime
@@ -342,6 +362,24 @@ private:
     void performAction(core::PerformanceAction action);
 
     juce::AudioDeviceManager device_manager_;
+
+    /// Walks the current section's chord chart. Message thread only.
+    core::SongMapPlayer song_map_;
+    /// What the chart is currently holding, so a chord change only moves what changes —
+    /// MRT2 re-articulates on every note-on, and G to Em shares two notes.
+    core::SoundingChord song_map_sounding_;
+    /// Detects a section change without the controller having to notify: comparing the
+    /// change counter is cheaper than a callback and cannot be missed if a tick is late.
+    std::uint64_t last_section_change_seen_ = 0;
+
+    /// Load the current section into the chart player and start it, or stop everything if
+    /// the song is not in Song Map mode. Message thread.
+    void resyncSongMap();
+    /// Push the chart's current chord to the backend, moving only what changed.
+    void pushSongMapChord();
+    /// Release everything the chart is holding. Called when leaving Song Map mode, on
+    /// PANIC, and when a song is unloaded.
+    void releaseSongMapChord();
 
     /// Retry schedule and state for a lost output device. Lives in core so the part that
     /// has to be right under stress — the schedule — is testable off-Mac.

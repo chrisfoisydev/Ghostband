@@ -23,6 +23,14 @@ enum class PerformanceAction {
     /// laptop to advance is not a set they can perform.
     NextSong,
     PreviousSong,
+    /// Song Map only: step the chord chart by hand.
+    ///
+    /// Not a convenience. A section with no tempo is `SongMapAdvance::Manual` and the
+    /// chart moves *only* when told to — so without a footswitch bound to this, Song Map
+    /// on an unmetered song is a mode the performer cannot actually use. In MIDI mode
+    /// both are harmless no-ops rather than errors.
+    NextChord,
+    PreviousChord,
 };
 
 const char* toString(PerformanceAction a) noexcept;
