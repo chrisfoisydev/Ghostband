@@ -305,7 +305,29 @@ void SetlistView::addSong() {
                        [this, safe](int choice) {
                            if (safe == nullptr) return;
                            if (choice <= 0) return;
-                           const auto& song = available_[static_cast<std::size_t>(choice - 1)];
+                           // **A copy, not a reference.** `refresh()` below reassigns
+                           // `available_`, which destroys every element in it — so a
+                           // reference taken here dangles the moment refresh() returns,
+                           // and the `song.title` read after it is a use-after-free.
+                           //
+                           // It crashed in exactly that way: SIGSEGV at address 0 inside
+                           // strlen, reached from `"Added " + song.title`, because the
+                           // freed juce::String's character pointer was null by then. It
+                           // survived some attempts and not others, which is what a
+                           // use-after-free looks like from the outside — the memory is
+                           // sometimes still readable.
+                           //
+                           // The bounds check guards a second hazard: the menu is async,
+                           // and a song can be deleted from the folder while it is open.
+                           const std::size_t choice_index = static_cast<std::size_t>(choice - 1);
+                           if (choice_index >= available_.size()) {
+                               showMessage("That song is no longer in the songs folder.",
+                                           kFault);
+                               refresh();
+                               return;
+                           }
+                           const GhostBandAudioEngine::SongOnDisk song = available_[choice_index];
+
                            const int index = editor_.addSong(song.file.toStdString(),
                                                              song.title.toStdString());
                            if (index < 0) {

@@ -918,48 +918,88 @@ already reports it — it just has not been read while the big model was loaded.
 
 ---
 
-## §28 — Adding the first song to a setlist crashed the app
+## §28 — Adding a song to a setlist crashed the app (use-after-free)
 
-**Status:** fixed and **verified on hardware 2026-08-20** — adding a song to an empty set no
-longer crashes. Found on hardware within minutes of the setlist screen existing.
+**Status:** fixed 2026-08-20, **fix not yet compiled**. Two bugs, one symptom, and a wrong
+diagnosis in between — recorded in full because the wrong diagnosis is the useful part.
 
-`SetlistView::refresh()` raised a re-entrancy guard it never read:
+### What actually crashed
 
-```cpp
-void SetlistView::refresh() {
-    const juce::ScopedValueSetter<bool> guard(updating_, true);   // set, never checked
+```
+signal SIGSEGV  EXC_BAD_ACCESS  KERN_INVALID_ADDRESS at 0x0
+faulting thread 0: 33 frames
+  _platform_strlen
+  juce::CharPointer_UTF8::findTerminatingNull() const
+  juce::String::appendCharPointer(...)
+  juce::operator+(char const*, juce::String const&)
+  ghostband::app::SetlistView::addSong()::$_0::operator()(int) const
 ```
 
-`updating_` was consulted by exactly one function, `commitPendingEdits`. That left the
-path that mattered wide open:
+The menu callback held a **reference** into `available_`, and then called `refresh()`,
+which reassigns `available_` and destroys every element in it:
 
-`refresh()` → `ListBox::updateContent()` → row count changes → JUCE moves the selection →
-`selectedRowsChanged()` → `refresh()` → …
+```cpp
+const auto& song = available_[choice - 1];   // reference into the vector
+editor_.addSong(song.file..., song.title...);
+refresh();                                   // available_ = engine_.availableSongs();
+showMessage("Added " + song.title + ...);    // song is dangling
+```
 
-Adding a song to an **empty** set is the 0 → 1 row-count change, which is precisely the
-transition that moves the selection. It recursed until the stack ran out.
+By the last line the freed `juce::String`'s character pointer was null, so `strlen` walked
+address 0. The fix is one word: take a copy. A bounds check went in beside it, because the
+menu is async and a song can be deleted from the folder while it is open.
 
-**Two things worth carrying forward:**
+### The wrong diagnosis, and why it looked right
 
-1. **A `ScopedValueSetter` guard is only half a guard.** Raising a flag on the way through
-   does nothing unless something reads it on the way in. `if (updating_) return;` was the
-   entire fix.
+Without a crash log, this was first diagnosed as **runaway recursion**: `refresh()` raised a
+`ScopedValueSetter` guard that nothing ever read, and `selectedRowsChanged` called straight
+back into `refresh()`. That is a genuine latent defect and the fix for it stands — but it
+was **not** this crash, and the 33-frame stack proves it. Recursion produces thousands of
+frames; a dangling pointer produces a few dozen.
 
-2. **The correct pattern was already in the repo, one file over.** `SongEditorView` has the
-   same ListBox-plus-fields shape and gets it right: `selectedRowsChanged` calls
-   `refreshSectionFields()`, a narrow function, rather than the full `refresh()`. Writing
-   `SetlistView` I reached for the general function instead of the specific one and did not
-   check how the neighbouring screen had solved the identical problem.
+Two things made the wrong answer persuasive:
 
-**A second bug fixed alongside it, which was not a crash.** `selectedRowsChanged` calling
-`refresh()` also meant re-reading and re-parsing the entire songs directory on every arrow
-key — invisible at a desk with three songs, and a stutter at a gig with forty. Selection
-changes now run `refreshSelectionUi()`, which touches no filesystem.
+1. **A use-after-free is intermittent by nature.** Freed memory is often still readable, so
+   the first rebuild appeared to fix it — the bug was reported fixed, then reappeared. That
+   is the signature of a memory bug being mistaken for a logic bug, and "it worked once"
+   should have been treated as evidence *for* a memory bug rather than against one.
+2. **A plausible mechanism was available.** The unread guard was real, sat in the same
+   function, and explained the symptom. Reading the code found *a* bug and stopped, instead
+   of establishing that it was *the* bug.
 
-**Not covered by a test.** This is a JUCE-callback re-entrancy bug and `ghostband_core` has
-no ListBox; it cannot be reproduced off-Mac. The regression check is manual and is now in
-the pre-gig list: open SETLISTS with an empty set and add a song.
+**The rule this is worth turning into:** on a crash, get the crash report before reading the
+code. `scripts/crashlog.py` now prints the signal, the frame count and the top frames in one
+command — thirty seconds, against two rounds of confident guessing. The frame count alone
+separates the two entire classes of cause.
+
+### What was fixed along the way, and stands on its own merits
+
+- `refresh()` now refuses re-entry (`if (updating_) return;`). Raising a flag on the way
+  through does nothing unless something reads it on the way in.
+- `selectedRowsChanged` runs `refreshSelectionUi()` instead of the full `refresh()`, which
+  had been re-reading and re-parsing the entire songs directory on **every arrow key** —
+  invisible with three songs, a stutter with forty.
+
+Neither was the crash. Both are worth keeping.
+
+**Not covered by a test.** `ghostband_core` has no ListBox and no JUCE strings; this class of
+bug cannot be reproduced off-Mac. The regression check is manual: open SETLISTS, add a song,
+and confirm the message names the song.
+
+**Address-sanitiser would have caught it instantly**, and — checked rather than assumed —
+it already reaches the app: `GHOSTBAND_SANITIZE` uses `add_compile_options` at the top of
+the root `CMakeLists.txt`, which applies to every target added after it, `src/app` included.
+The comment there claimed it was "for the portable core" and undersold what it does.
+
+The catch is cost, not capability: it also instruments JUCE, MLX and TFLite, so it means a
+cold rebuild of everything, and MRT2 under ASan will not be anywhere near real time. That is
+fine for hunting a UI memory bug, where nothing needs to keep up with a performer, and
+useless for anything timing-related. Worth doing as a deliberate session, not as the default:
+
+```
+cmake -B build-asan -DGHOSTBAND_BUILD_APP=ON -DGHOSTBAND_SANITIZE=address
+cmake --build build-asan -j
+```
 
 **Still unverified for setlists:** the round trip. Building a set works; saving one, quitting,
-relaunching and reopening it has never been done against a real file. That is the check that
-caught §25 for songs, and the equivalent has not been run here.
+relaunching and reopening it has never been done against a real file.

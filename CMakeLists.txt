@@ -53,8 +53,18 @@ else()
         -Wnull-dereference -Wdouble-promotion)
 endif()
 
-# Optional sanitizers for the portable core (CLAUDE.md: "use sanitizers where useful").
-# Usage: cmake -B build-asan -DGHOSTBAND_SANITIZE=address,undefined
+# Optional sanitizers (CLAUDE.md: "use sanitizers where useful").
+#
+# `add_compile_options` here applies to every target added below, so this reaches the JUCE
+# app as well as the portable core — which is what caught nothing for a long time only
+# because nobody ran it against the app. A UI use-after-free (KNOWN_ISSUES.md §28) is
+# exactly what it is for.
+#
+# The cost is that it also instruments JUCE, MLX and TFLite: a cold rebuild, and MRT2 will
+# not be close to real time under it. Fine for hunting memory bugs, useless for timing.
+#
+# Core only:  cmake -B build-asan -DGHOSTBAND_SANITIZE=address,undefined
+# With app:   cmake -B build-asan -DGHOSTBAND_BUILD_APP=ON -DGHOSTBAND_SANITIZE=address
 set(GHOSTBAND_SANITIZE "" CACHE STRING "Comma-separated sanitizers, e.g. address,undefined")
 if(GHOSTBAND_SANITIZE)
     add_compile_options(-fsanitize=${GHOSTBAND_SANITIZE} -fno-omit-frame-pointer)
