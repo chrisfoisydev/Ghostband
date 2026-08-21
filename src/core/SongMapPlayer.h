@@ -55,13 +55,12 @@ const char* toString(SongMapAdvance a) noexcept;
 class SongMapPlayer {
 public:
     struct Config {
-        /// Beats each chord is held for. One bar of 4/4.
-        ///
-        /// Not persisted per section yet, so a chart where chords last two bars cannot be
-        /// expressed. Adding it is a schema change, and `Persistence` has the migration
-        /// machinery for exactly that — it is a deliberate follow-up, not an oversight.
-        int beatsPerChord = 4;
         /// Where chords are voiced. See ChordParser.h on absolute placement.
+        ///
+        /// Beats-per-chord used to live here. It is now `SongSection::beatsPerChord`,
+        /// persisted with the song at schema version 2 — a chart where the chorus moves
+        /// twice as fast as the verse is ordinary songwriting, and a player-wide setting
+        /// could not express it.
         int octave = 4;
     };
 
@@ -93,6 +92,8 @@ public:
     SongMapAdvance advanceMode() const noexcept { return mode_; }
     /// Milliseconds each chord is held. Zero in Manual mode.
     double msPerChord() const noexcept;
+    /// Beats per chord for the loaded section, straight from the song.
+    int beatsPerChord() const noexcept { return beats_per_chord_; }
 
     /// Advance the clock by `deltaMs`. No-op unless running in `Clock` mode.
     /// @return true when the chord changed, so the caller knows to push new notes.
@@ -140,6 +141,7 @@ private:
     bool running_ = false;
     SongMapAdvance mode_ = SongMapAdvance::Manual;
     double tempo_bpm_ = 0.0;
+    int beats_per_chord_ = kDefaultBeatsPerChord;
     double elapsed_in_chord_ms_ = 0.0;
 };
 

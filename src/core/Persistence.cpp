@@ -140,21 +140,48 @@ LoadResult parseHeader(const std::string& line, const char* expectedKind,
 
 /// Bring a parsed document up to the current schema.
 ///
-/// Version 1 is the first format, so there is nothing to migrate yet and this returns
-/// success unchanged. It exists now rather than later on purpose: the moment a schema
-/// change is needed, the alternative is inventing migration under time pressure against
-/// files that already hold a performer's set. Adding version 2 means adding one branch
-/// here and one test that loads a real version 1 file.
+/// The generic case: no known migration, so refuse rather than open a file we cannot fully
+/// understand. `Setlist` is still at version 1 and uses this unchanged.
 template <typename T>
 LoadResult migrate(T& /*value*/, int fromVersion, int toVersion) {
     if (fromVersion == toVersion) return LoadResult::success(fromVersion);
 
-    // Unreachable today: parseHeader rejects anything above `toVersion`, and version 1 is
-    // the floor. Reported honestly rather than silently accepted, because a version we do
-    // not know how to migrate is not a version we can safely open.
+    // parseHeader rejects anything *above* toVersion, so reaching here means an older
+    // version with no migration written for it. Reported honestly rather than silently
+    // accepted: a version we do not know how to migrate is not one we can safely open.
     return LoadResult::failure("No migration from format version "
                                + std::to_string(fromVersion) + " to "
                                + std::to_string(toVersion) + ".", 1);
+}
+
+/// Songs, version 1 -> 2: `SongSection::beatsPerChord` was added.
+///
+/// A version 1 file has no `beats_per_chord` key, and every version 1 song meant one bar
+/// of 4/4 because that is all Song Map could do — so the struct default is already
+/// correct and this loop changes nothing. It is written out anyway, for two reasons: the
+/// next migration will not be a no-op and this is the shape it has to take, and a silent
+/// reliance on "the default happens to be right" is exactly the assumption that rots when
+/// someone later changes the default.
+template <>
+LoadResult migrate<Song>(Song& song, int fromVersion, int toVersion) {
+    if (fromVersion == toVersion) return LoadResult::success(fromVersion);
+
+    int version = fromVersion;
+    if (version == 1) {
+        for (auto& section : song.sections) {
+            section.beatsPerChord = kDefaultBeatsPerChord;
+        }
+        version = 2;
+    }
+
+    if (version != toVersion) {
+        return LoadResult::failure("No migration from format version "
+                                   + std::to_string(fromVersion) + " to "
+                                   + std::to_string(toVersion) + ".", 1);
+    }
+    // Reports the version the *file* was, not the version it is now. The caller uses this
+    // to tell the performer their song was upgraded.
+    return LoadResult::success(fromVersion);
 }
 
 struct Line {
@@ -212,6 +239,7 @@ std::string serialiseSong(const Song& song) {
         os << "intensity=" << formatDouble(static_cast<double>(s.aiIntensity)) << '\n';
         os << "ai_enabled=" << (s.aiEnabled ? '1' : '0') << '\n';
         os << "transition_ms=" << s.transitionMs << '\n';
+        os << "beats_per_chord=" << s.beatsPerChord << '\n';
         for (const auto& chord : s.chordProgression) {
             appendField(os, "chord", chord);
         }
@@ -295,6 +323,17 @@ LoadResult deserialiseSong(const std::string& text, Song& out) {
             if (!parseBool(line.value, s.aiEnabled)) {
                 return LoadResult::failure("ai_enabled must be 0 or 1.", line_number);
             }
+        } else if (line.key == "beats_per_chord") {
+            int v = 0;
+            if (!parseInt(line.value, v)) {
+                return LoadResult::failure("beats_per_chord is not a number.", line_number);
+            }
+            // Clamped rather than rejected, like intensity: an out-of-range value here is
+            // recoverable and refusing to open the song over it would be the worse
+            // outcome. The *editor* refuses, which is where a typo can still be fixed.
+            s.beatsPerChord = v < kMinBeatsPerChord   ? kMinBeatsPerChord
+                              : v > kMaxBeatsPerChord ? kMaxBeatsPerChord
+                                                      : v;
         } else if (line.key == "transition_ms") {
             int v = 0;
             if (!parseInt(line.value, v)) {

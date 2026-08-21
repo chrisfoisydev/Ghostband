@@ -241,22 +241,45 @@ TEST("a backwards delta is ignored rather than rewinding") {
     CHECK(p.index() == 0);
 }
 
-TEST("beats per chord changes the chord length") {
+TEST("beats per chord comes from the section, so sections can move at different rates") {
+    // A chorus that moves twice as fast as its verse is ordinary songwriting, which is why
+    // this is per section rather than a player-wide setting.
     SongMapPlayer p;
-    p.loadSection(fourChordsAt120());
+
+    auto verse = fourChordsAt120();
+    verse.beatsPerChord = 4;
+    p.loadSection(verse);
+    CHECK(p.beatsPerChord() == 4);
     CHECK(p.msPerChord() == 2000.0);
 
-    SongMapPlayer::Config config;
-    config.beatsPerChord = 2;
-    p.setConfig(config);
+    auto chorus = fourChordsAt120();
+    chorus.beatsPerChord = 2;
+    p.loadSection(chorus);
+    CHECK(p.beatsPerChord() == 2);
     CHECK(p.msPerChord() == 1000.0);
 
-    // Zero beats would make every tick advance forever. Clamped, not asserted: this is
-    // reachable from a UI field.
-    config.beatsPerChord = 0;
-    p.setConfig(config);
-    CHECK(p.config().beatsPerChord == 1);
-    CHECK(p.msPerChord() == 500.0);
+    auto slow = fourChordsAt120();
+    slow.beatsPerChord = 8;                 // two bars per chord
+    p.loadSection(slow);
+    CHECK(p.msPerChord() == 4000.0);
+}
+
+TEST("a nonsense beats-per-chord is clamped rather than trusted") {
+    // Zero would make msPerChord zero and the clock advance forever in one tick. The file
+    // loader clamps too, but a Song built in memory never goes through it.
+    SongMapPlayer p;
+
+    auto broken = fourChordsAt120();
+    broken.beatsPerChord = 0;
+    p.loadSection(broken);
+    CHECK(p.beatsPerChord() == kMinBeatsPerChord);
+    p.start();
+    CHECK(p.msPerChord() > 0.0);
+    CHECK(!p.tick(1.0));                    // does not run away
+
+    broken.beatsPerChord = 9999;
+    p.loadSection(broken);
+    CHECK(p.beatsPerChord() == kMaxBeatsPerChord);
 }
 
 TEST("loading a new section resets everything") {

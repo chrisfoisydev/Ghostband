@@ -185,7 +185,105 @@ TEST("a negative master level round-trips exactly") {
 
 TEST("the header names the format and its version") {
     const auto text = serialiseSong(makeSong());
-    CHECK(text.rfind("ghostband-song 1\n", 0) == 0);
+    CHECK(text.rfind("ghostband-song " + std::to_string(Song::kSchemaVersion) + "\n", 0) == 0);
+    // Pinned as a literal too. Deriving it from the constant alone would let a version bump
+    // pass this test without anyone thinking about the files already on disk.
+    CHECK(text.rfind("ghostband-song 2\n", 0) == 0);
+}
+
+// --- Songs: migration ---------------------------------------------------------------
+
+TEST("a version 1 song still opens, and gets the default beats per chord") {
+    // The migration machinery's first real use. A version 1 file predates
+    // SongSection::beatsPerChord entirely: every version 1 song meant one bar of 4/4,
+    // because that is all Song Map could do.
+    //
+    // Written out as a literal rather than produced by an older serialiser, because the
+    // point is to open a file exactly as it exists on a performer's disk today.
+    const std::string v1 =
+        "ghostband-song 1\n"
+        "title=Old Song\n"
+        "default_prompt=warm folk trio\n"
+        "model=mrt2_small\n"
+        "master_level_db=0\n"
+        "harmony=song_map\n"
+        "[section]\n"
+        "name=Verse\n"
+        "prompt=\n"
+        "intensity=0.5\n"
+        "ai_enabled=1\n"
+        "transition_ms=500\n"
+        "chord=G\n"
+        "chord=D\n"
+        "[section]\n"
+        "name=Chorus\n"
+        "prompt=\n"
+        "intensity=0.7\n"
+        "ai_enabled=1\n"
+        "transition_ms=250\n"
+        "chord=C\n";
+
+    Song out;
+    const auto result = deserialiseSong(v1, out);
+    CHECK(result.ok);
+    CHECK(result.message.empty());
+    // Reports the version the *file* was, so the caller can tell the performer it was
+    // upgraded rather than silently rewriting it.
+    CHECK(result.version == 1);
+
+    CHECK(out.title == "Old Song");
+    CHECK(out.harmonySource == HarmonySource::SongMap);
+    CHECK(out.sections.size() == 2);
+    CHECK(out.sections[0].chordProgression == std::vector<std::string>({"G", "D"}));
+    for (const auto& section : out.sections) {
+        CHECK(section.beatsPerChord == kDefaultBeatsPerChord);
+    }
+}
+
+TEST("a migrated song saves at the current version") {
+    // The upgrade is only durable once it is written back, so this is the half of the
+    // round trip that actually moves the file forward.
+    const std::string v1 = "ghostband-song 1\ntitle=Old\nharmony=midi\n"
+                           "[section]\nname=A\nprompt=x\n";
+    Song out;
+    CHECK(deserialiseSong(v1, out).ok);
+
+    const auto rewritten = serialiseSong(out);
+    CHECK(rewritten.rfind("ghostband-song 2\n", 0) == 0);
+    CHECK(rewritten.find("beats_per_chord=4") != std::string::npos);
+
+    Song reloaded;
+    const auto result = deserialiseSong(rewritten, reloaded);
+    CHECK(result.ok);
+    CHECK(result.version == Song::kSchemaVersion);
+}
+
+TEST("beats per chord round-trips, and a nonsense value is clamped not refused") {
+    Song song = makeSong();
+    song.sections[0].beatsPerChord = 8;
+    Song back;
+    CHECK(deserialiseSong(serialiseSong(song), back).ok);
+    CHECK(back.sections[0].beatsPerChord == 8);
+
+    // Clamped on load, like intensity: an out-of-range number is recoverable, and refusing
+    // to open a whole song over it would be the worse outcome. The editor refuses, which
+    // is where a typo can still be fixed.
+    const std::string bad = "ghostband-song 2\ntitle=T\nharmony=midi\n"
+                            "[section]\nname=A\nprompt=x\nbeats_per_chord=9999\n";
+    Song clamped;
+    CHECK(deserialiseSong(bad, clamped).ok);
+    CHECK(clamped.sections[0].beatsPerChord == kMaxBeatsPerChord);
+
+    const std::string zero = "ghostband-song 2\ntitle=T\nharmony=midi\n"
+                             "[section]\nname=A\nprompt=x\nbeats_per_chord=0\n";
+    Song floored;
+    CHECK(deserialiseSong(zero, floored).ok);
+    CHECK(floored.sections[0].beatsPerChord == kMinBeatsPerChord);
+
+    const std::string words = "ghostband-song 2\ntitle=T\nharmony=midi\n"
+                              "[section]\nname=A\nprompt=x\nbeats_per_chord=four\n";
+    Song refused;
+    CHECK(!deserialiseSong(words, refused).ok);
 }
 
 TEST("a file from a newer GhostBand is refused, and says so specifically") {

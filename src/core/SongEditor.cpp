@@ -226,4 +226,15 @@ bool SongEditor::setSectionTempoBpm(int index, std::optional<double> bpm) {
     return true;
 }
 
+bool SongEditor::setSectionBeatsPerChord(int index, int beats) {
+    if (index < 0 || index >= sectionCount()) return false;
+    if (beats < kMinBeatsPerChord || beats > kMaxBeatsPerChord) return false;
+
+    auto& s = song_.sections[static_cast<std::size_t>(index)];
+    if (s.beatsPerChord == beats) return true;
+    pushUndo();
+    s.beatsPerChord = beats;
+    return true;
+}
+
 } // namespace ghostband::core

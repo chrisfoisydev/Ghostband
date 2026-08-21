@@ -459,4 +459,21 @@ TEST("tempo on a section that does not exist is refused") {
     CHECK(!e.setSectionTempoBpm(-1, 120.0));
 }
 
+TEST("beats per chord is editable within musical bounds") {
+    auto e = emptyEditor();
+    addNamed(e, "Verse");
+    CHECK(e.song().sections[0].beatsPerChord == kDefaultBeatsPerChord);
+
+    CHECK(e.setSectionBeatsPerChord(0, 8));       // two bars per chord
+    CHECK(e.song().sections[0].beatsPerChord == 8);
+    CHECK(e.setSectionBeatsPerChord(0, kMinBeatsPerChord));
+    CHECK(e.setSectionBeatsPerChord(0, kMaxBeatsPerChord));
+
+    // Refused, not clamped — same rule as tempo.
+    CHECK(!e.setSectionBeatsPerChord(0, 0));
+    CHECK(!e.setSectionBeatsPerChord(0, -4));
+    CHECK(!e.setSectionBeatsPerChord(0, kMaxBeatsPerChord + 1));
+    CHECK(e.song().sections[0].beatsPerChord == kMaxBeatsPerChord);
+}
+
 TEST_MAIN_END()

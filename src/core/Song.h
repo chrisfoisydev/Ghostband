@@ -25,6 +25,13 @@ const char* toDisplayString(HarmonySource s) noexcept;
 /// @return false if the text matches no source, leaving `out` untouched.
 bool parseHarmonySource(const std::string& text, HarmonySource& out) noexcept;
 
+/// One bar of 4/4 — the default a chord chart assumes unless told otherwise.
+inline constexpr int kDefaultBeatsPerChord = 4;
+/// Bounds for `SongSection::beatsPerChord`. One beat per chord is a real (if frantic)
+/// chart; sixteen is four bars, past which a chart is not really what is being written.
+inline constexpr int kMinBeatsPerChord = 1;
+inline constexpr int kMaxBeatsPerChord = 16;
+
 /// Section transition times offered by the brief (§15). Stored as milliseconds so a
 /// future custom value needs no schema change.
 inline constexpr int kTransitionInstantMs = 0;
@@ -62,6 +69,18 @@ struct SongSection {
     /// Display/parse only — MRT2 always receives note numbers.
     std::vector<std::string> chordProgression;
 
+    /// Song Map mode only: how many beats each chord in `chordProgression` is held for.
+    ///
+    /// Four is one bar of 4/4, which is the common case in the kind of song this app is
+    /// for. Two-bar chords (8) and half-bar changes (2) are the next most common, which is
+    /// why this is a number rather than a bar/half-bar toggle.
+    ///
+    /// Per section rather than per song: a chorus that moves twice as fast as its verse is
+    /// ordinary songwriting, and per song would not express it. Per *chord* would express
+    /// more still, and is not done — it would turn a chord chart into a sequencer, and the
+    /// performer already has a footswitch for the irregular case.
+    int beatsPerChord = kDefaultBeatsPerChord;
+
     std::optional<double> tempoBpm;
     std::string notes;
 
@@ -73,7 +92,18 @@ struct SongSection {
 struct Song {
     /// Bumped whenever the persisted shape changes. Migration infrastructure exists from
     /// the first version precisely so a schema change cannot destroy a performer's songs.
-    static constexpr int kSchemaVersion = 1;
+    ///
+    /// **Version 2** (2026-08-20) added `SongSection::beatsPerChord`. A version 1 file has
+    /// no such key, and the struct default of 4 is exactly what those songs meant, so the
+    /// migration adds nothing — but it is written out explicitly rather than relying on
+    /// that coincidence, because the next schema change will not be so lucky and the
+    /// branch needs to exist before it is needed under pressure.
+    ///
+    /// Note the one-way cost: a file written by this build cannot be opened by a build
+    /// that only knows version 1. `parseHeader` refuses newer files by design rather than
+    /// reading them partially, which is the right failure but is worth knowing before
+    /// downgrading mid-tour.
+    static constexpr int kSchemaVersion = 2;
 
     std::string title = "Untitled";
     std::string defaultStylePrompt;

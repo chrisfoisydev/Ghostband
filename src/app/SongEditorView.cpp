@@ -57,6 +57,37 @@ const HarmonyChoice kHarmonySources[] = {
      "at all. Phase 3."},
 };
 
+struct ChordLengthChoice { const char* label; int beats; };
+
+/// Offered lengths. Includes 3 and 6 because a waltz is a real thing a singer-songwriter
+/// writes, and a 4/4-only list would quietly make 3/4 charts impossible.
+const ChordLengthChoice kChordLengths[] = {
+    {"1 beat",              1},
+    {"2 beats (half bar)",  2},
+    {"3 beats (bar of 3)",  3},
+    {"4 beats (one bar)",   4},
+    {"6 beats (two bars of 3)", 6},
+    {"8 beats (two bars)",  8},
+    {"12 beats",            12},
+    {"16 beats (four bars)", 16},
+};
+
+int chordLengthIndexFor(int beats) {
+    for (int i = 0; i < static_cast<int>(std::size(kChordLengths)); ++i) {
+        if (kChordLengths[i].beats == beats) return i;
+    }
+    // A song file can legitimately hold a value not on this list — the loader clamps to
+    // 1..16 but does not snap to these. Showing the nearest is better than showing the
+    // first, and the model is left alone until the performer actually picks something.
+    int best = 0;
+    int best_delta = -1;
+    for (int i = 0; i < static_cast<int>(std::size(kChordLengths)); ++i) {
+        const int delta = std::abs(kChordLengths[i].beats - beats);
+        if (best_delta < 0 || delta < best_delta) { best = i; best_delta = delta; }
+    }
+    return best;
+}
+
 int harmonyIndexFor(core::HarmonySource source) {
     for (int i = 0; i < static_cast<int>(std::size(kHarmonySources)); ++i) {
         if (kHarmonySources[i].source == source) return i;
@@ -264,6 +295,19 @@ SongEditorView::SongEditorView(GhostBandAudioEngine& engine) : engine_(engine) {
     tempo_editor_.onReturnKey = [this] { tempo_editor_.onFocusLost(); };
     addLabel(tempo_hint_, "", kDim);
 
+    addLabel(chord_length_label_, "CHORD LENGTH", kKicker);
+    addAndMakeVisible(chord_length_combo_);
+    for (int i = 0; i < static_cast<int>(std::size(kChordLengths)); ++i) {
+        chord_length_combo_.addItem(kChordLengths[i].label, i + 1);
+    }
+    chord_length_combo_.onChange = [this] {
+        if (updating_) return;
+        const int index = chord_length_combo_.getSelectedId() - 1;
+        if (index < 0 || index >= static_cast<int>(std::size(kChordLengths))) return;
+        editor_.setSectionBeatsPerChord(selectedSection(), kChordLengths[index].beats);
+        refresh();
+    };
+
     addLabel(validation_label_, "", kFault);
     addLabel(slots_label_, "", kWarn);
     addLabel(file_status_label_, "", kDim);
@@ -414,7 +458,9 @@ void SongEditorView::updateSongMapVisibility() {
                                static_cast<juce::Component*>(&chords_hint_),
                                static_cast<juce::Component*>(&tempo_label_),
                                static_cast<juce::Component*>(&tempo_editor_),
-                               static_cast<juce::Component*>(&tempo_hint_)}) {
+                               static_cast<juce::Component*>(&tempo_hint_),
+                               static_cast<juce::Component*>(&chord_length_label_),
+                               static_cast<juce::Component*>(&chord_length_combo_)}) {
         c->setVisible(song_map);
     }
     resized();
@@ -446,6 +492,7 @@ void SongEditorView::refreshSectionFields() {
     transition_combo_.setEnabled(enabled);
     chords_editor_.setEnabled(enabled);
     tempo_editor_.setEnabled(enabled);
+    chord_length_combo_.setEnabled(enabled);
 
     if (section == nullptr) {
         section_heading_.setText("SECTION", juce::dontSendNotification);
@@ -498,11 +545,22 @@ void SongEditorView::refreshSectionFields() {
     if (tempo_editor_.getText() != tempo_text) {
         tempo_editor_.setText(tempo_text, juce::dontSendNotification);
     }
+    chord_length_combo_.setSelectedId(chordLengthIndexFor(section->beatsPerChord) + 1,
+                                      juce::dontSendNotification);
+
     tempo_hint_.setColour(juce::Label::textColourId, kDim);
-    tempo_hint_.setText(section->tempoBpm.has_value()
-                            ? "Chords advance on their own, one per bar."
-                            : "No tempo: chords wait for a NEXT CHORD footswitch. 20-300 BPM.",
-                        juce::dontSendNotification);
+    if (section->tempoBpm.has_value()) {
+        // The concrete consequence, in seconds, rather than the abstract setting. "Each
+        // chord lasts 2.0 s" is checkable against the song in the performer's head in a
+        // way that "4 beats at 120 BPM" is not.
+        const double seconds = (60.0 / *section->tempoBpm)
+                             * static_cast<double>(section->beatsPerChord);
+        tempo_hint_.setText("Each chord lasts " + juce::String(seconds, 1) + " s.",
+                            juce::dontSendNotification);
+    } else {
+        tempo_hint_.setText("No tempo: chords wait for a NEXT CHORD footswitch. 20-300 BPM.",
+                            juce::dontSendNotification);
+    }
 
     section_heading_.setText("SECTION " + juce::String(index + 1) + " OF "
                                  + juce::String(editor_.sectionCount()),
@@ -717,6 +775,11 @@ void SongEditorView::resized() {
     chords_hint_.setBounds(right.removeFromTop(20));
 
     right.removeFromTop(8);
+    auto length_row = right.removeFromTop(26);
+    chord_length_label_.setBounds(length_row.removeFromLeft(120));
+    chord_length_combo_.setBounds(length_row.removeFromLeft(220));
+
+    right.removeFromTop(6);
     auto tempo_row = right.removeFromTop(26);
     tempo_label_.setBounds(tempo_row.removeFromLeft(120));
     tempo_editor_.setBounds(tempo_row.removeFromLeft(100));

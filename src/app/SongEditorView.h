@@ -127,6 +127,12 @@ private:
     juce::TextEditor tempo_editor_;
     juce::Label tempo_hint_;
 
+    /// How long each chord is held, in beats. A list rather than a number field, for the
+    /// same reason the transition times are a list: this is a musical decision with a
+    /// handful of useful answers, not a value to be dialled in.
+    juce::Label chord_length_label_;
+    juce::ComboBox chord_length_combo_;
+
     juce::Label validation_label_;
     juce::Label slots_label_;
 

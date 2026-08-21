@@ -18,9 +18,6 @@ const char* toString(SongMapAdvance a) noexcept {
 }
 
 void SongMapPlayer::setConfig(Config config) noexcept {
-    // A beatsPerChord of zero would make msPerChord zero and the clock advance infinitely
-    // in one tick. Clamped rather than asserted: this is reachable from a UI field.
-    config.beatsPerChord = std::max(1, config.beatsPerChord);
     config_ = config;
     rephase();
 }
@@ -51,6 +48,10 @@ bool SongMapPlayer::loadSection(const SongSection& section) {
     // A tempo the performer actually entered, or no clock at all. Inventing 120 BPM here
     // would be the app deciding how fast the song goes.
     tempo_bpm_ = section.tempoBpm.value_or(0.0);
+    // Clamped on the way in, not trusted. Zero would make msPerChord zero and the clock
+    // advance forever in a single tick; the file loader clamps too, but a Song built in
+    // memory does not go through it.
+    beats_per_chord_ = std::clamp(section.beatsPerChord, kMinBeatsPerChord, kMaxBeatsPerChord);
     mode_ = tempo_bpm_ > 0.0 ? SongMapAdvance::Clock : SongMapAdvance::Manual;
 
     active_ = std::any_of(slots_.begin(), slots_.end(),
@@ -61,7 +62,7 @@ bool SongMapPlayer::loadSection(const SongSection& section) {
 double SongMapPlayer::msPerChord() const noexcept {
     if (mode_ != SongMapAdvance::Clock || tempo_bpm_ <= 0.0) return 0.0;
     const double ms_per_beat = 60'000.0 / tempo_bpm_;
-    return ms_per_beat * static_cast<double>(config_.beatsPerChord);
+    return ms_per_beat * static_cast<double>(beats_per_chord_);
 }
 
 void SongMapPlayer::start() noexcept {

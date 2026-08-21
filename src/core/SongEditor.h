@@ -87,6 +87,11 @@ public:
     /// to 300 would give the performer a tempo they did not ask for and no sign anything
     /// was wrong.
     bool setSectionTempoBpm(int index, std::optional<double> bpm);
+
+    /// How many beats each chord is held for. Refused outside `kMinBeatsPerChord` ..
+    /// `kMaxBeatsPerChord`, for the same reason tempo is: a value the performer did not
+    /// choose is worse than a keystroke that visibly does nothing.
+    bool setSectionBeatsPerChord(int index, int beats);
     /// @}
 
     /// @name Undo

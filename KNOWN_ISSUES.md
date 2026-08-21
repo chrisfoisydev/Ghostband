@@ -1029,9 +1029,9 @@ particular:
   API and unproven of the *music*.
 - whether one chord per bar at the section tempo is the right default. It is the most
   common case in the kind of song this app is for, and it is a guess.
-- whether `beatsPerChord` being fixed at 4 is a blocker in practice. A chart where chords
-  last two bars cannot be expressed. Persistence has the migration machinery for a schema
-  field; it was left out deliberately rather than guessed at.
+- ~~whether `beatsPerChord` being fixed at 4 is a blocker in practice~~ — fixed 2026-08-20.
+  It is now `SongSection::beatsPerChord`, persisted at schema version 2, editable per
+  section. See §30.
 
 **The judgement call most worth revisiting after hearing it:** a symbol that does not parse
 holds its slot and yields no notes, so the band keeps playing the previous chord. The
@@ -1045,3 +1045,44 @@ and no tempo → APPLY TO BAND → PERFORM. The chart should show `G` and `FOOTS
 should not move until NEXT CHORD is fired. Then set a tempo of 100 and confirm it advances
 one chord per bar. Then type a deliberate typo (`Emm`) and confirm the editor names its
 position, the stage screen shows it red as `UNREADABLE - HOLDING`, and the band holds.
+
+
+---
+
+## §30 — Schema version 2, and the first real migration
+
+**Status:** written 2026-08-20, core tested (19 suites), **app layer not compiled**.
+
+`SongSection::beatsPerChord` is now persisted, which took the song format from version 1 to
+version 2 and turned the migration machinery from a placeholder into working code.
+
+**Per section, not per song.** A chorus that moves twice as fast as its verse is ordinary
+songwriting and a song-level setting could not express it. Per *chord* would express more
+still and is deliberately not done — that turns a chord chart into a sequencer, and the
+performer already has a footswitch for the irregular case.
+
+**The migration does nothing, and is written out anyway.** Every version 1 file predates the
+field, and every version 1 song meant one bar of 4/4 because that is all Song Map could do —
+so the struct default is already correct. The branch exists regardless, for two reasons: the
+next migration will not be a no-op and this is the shape it has to take, and a silent
+reliance on "the default happens to be right" is precisely the assumption that rots when
+someone later changes the default.
+
+**Two behaviours that deliberately disagree with each other:**
+
+- The **loader clamps** an out-of-range `beats_per_chord` to 1..16. An out-of-range number
+  in a file is recoverable, and refusing to open a whole song over it would be the worse
+  outcome — same rule as `intensity`.
+- The **editor refuses** the same value. That is where a typo can still be fixed, and
+  accepting-then-clamping would hand the performer a chord length they did not choose.
+
+**The cost, stated plainly:** a song saved by this build **cannot be opened by a build that
+only knows version 1**. `parseHeader` refuses newer files by design rather than reading them
+partially, which is the right failure but is worth knowing before downgrading mid-tour. A
+version 1 file opened here is upgraded in memory and only becomes version 2 on disk when it
+is next saved; `LoadResult::version` still reports 1, so the caller can say so.
+
+**Not verified:** the editor's CHORD LENGTH control, and whether a real version 1 file on
+the performer's disk opens. The migration is tested against a literal version 1 document
+written into the test, which is the right test and is not the same as the file in
+`~/Documents/GhostBand/Songs`.
