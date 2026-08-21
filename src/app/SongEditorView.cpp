@@ -5,6 +5,8 @@
 
 #include "SongEditorView.h"
 
+#include "core/ChordParser.h"
+
 #include "StagePalette.h"
 
 #include <cstdlib>   // std::abs
@@ -30,6 +32,37 @@ const TransitionChoice kTransitions[] = {
     {"Slow",      core::kTransitionSlowMs},
     {"Very slow", core::kTransitionVerySlowMs},
 };
+
+struct HarmonyChoice {
+    core::HarmonySource source;
+    const char* label;
+    const char* hint;
+};
+
+/// Offer order, and the wording the performer reads.
+///
+/// Guitar Follow is listed and **labelled unbuilt** rather than hidden. It is a real part
+/// of the product the brief describes, and a performer who has read about it should find
+/// out here that it does not exist yet, rather than concluding the app is missing a feature
+/// it never had. Selecting it is allowed; the hint says plainly what will happen, which is
+/// nothing.
+const HarmonyChoice kHarmonySources[] = {
+    {core::HarmonySource::Midi, "Keyboard / MIDI",
+     "The band follows the notes you hold. The reliable path."},
+    {core::HarmonySource::SongMap, "Song Map (chord chart)",
+     "The band follows this section's chords. A section with a tempo advances on its own; "
+     "without one it waits for a NEXT CHORD footswitch."},
+    {core::HarmonySource::GuitarExperimental, "Guitar Follow - NOT BUILT",
+     "EXPERIMENTAL and not implemented. Selecting this leaves the band with no harmony "
+     "at all. Phase 3."},
+};
+
+int harmonyIndexFor(core::HarmonySource source) {
+    for (int i = 0; i < static_cast<int>(std::size(kHarmonySources)); ++i) {
+        if (kHarmonySources[i].source == source) return i;
+    }
+    return 0;
+}
 
 int transitionIndexFor(int ms) {
     int best = 0;
@@ -70,6 +103,22 @@ SongEditorView::SongEditorView(GhostBandAudioEngine& engine) : engine_(engine) {
         editor_.setDefaultPrompt(default_prompt_editor_.getText().toStdString());
         refresh();
     };
+
+    addLabel(harmony_label_, "HARMONY", kKicker);
+    addAndMakeVisible(harmony_combo_);
+    // Ids are 1-based and map onto kHarmonySources below, not onto the enum's own values —
+    // ComboBox reserves 0 for "nothing selected".
+    for (int i = 0; i < static_cast<int>(std::size(kHarmonySources)); ++i) {
+        harmony_combo_.addItem(kHarmonySources[i].label, i + 1);
+    }
+    harmony_combo_.onChange = [this] {
+        if (updating_) return;
+        const int index = harmony_combo_.getSelectedId() - 1;
+        if (index < 0 || index >= static_cast<int>(std::size(kHarmonySources))) return;
+        editor_.setHarmonySource(kHarmonySources[index].source);
+        refresh();
+    };
+    addLabel(harmony_hint_, "", kDim);
 
     addAndMakeVisible(section_list_);
     section_list_.setModel(this);
@@ -178,6 +227,43 @@ SongEditorView::SongEditorView(GhostBandAudioEngine& engine) : engine_(engine) {
         refresh();
     };
 
+    addLabel(chords_label_, "CHORDS", kKicker);
+    addAndMakeVisible(chords_editor_);
+    chords_editor_.setMultiLine(false);
+    chords_editor_.setTextToShowWhenEmpty("G  D  Em  C", kDim);
+    chords_editor_.onTextChange = [this] {
+        if (updating_) return;
+        editor_.setSectionChords(selectedSection(),
+                                 splitChordText(chords_editor_.getText()));
+        refresh();
+    };
+    addLabel(chords_hint_, "", kDim);
+
+    addLabel(tempo_label_, "TEMPO", kKicker);
+    addAndMakeVisible(tempo_editor_);
+    tempo_editor_.setMultiLine(false);
+    tempo_editor_.setTextToShowWhenEmpty("none - advance by footswitch", kDim);
+    tempo_editor_.onFocusLost = [this] {
+        if (updating_) return;
+        const auto text = tempo_editor_.getText().trim();
+        if (text.isEmpty()) {
+            // Clearing is a musical choice, not a missing value: no tempo puts the chart
+            // into Manual, where it moves only when the performer says so.
+            editor_.setSectionTempoBpm(selectedSection(), std::nullopt);
+        } else {
+            // Refused rather than clamped by the model. refresh() then rewrites the field
+            // from the model, so a rejected value visibly snaps back instead of sitting
+            // there looking accepted.
+            editor_.setSectionTempoBpm(selectedSection(), text.getDoubleValue());
+        }
+        refresh();
+    };
+    // Commit on Enter too: a performer who types a tempo and immediately clicks SAVE never
+    // loses focus, and this is the field where that silently discarded the edit before
+    // (KNOWN_ISSUES.md §25 is the same shape).
+    tempo_editor_.onReturnKey = [this] { tempo_editor_.onFocusLost(); };
+    addLabel(tempo_hint_, "", kDim);
+
     addLabel(validation_label_, "", kFault);
     addLabel(slots_label_, "", kWarn);
     addLabel(file_status_label_, "", kDim);
@@ -262,6 +348,17 @@ void SongEditorView::refresh() {
         default_prompt_editor_.setText(song.defaultStylePrompt, juce::dontSendNotification);
     }
 
+    const int harmony_index = harmonyIndexFor(song.harmonySource);
+    harmony_combo_.setSelectedId(harmony_index + 1, juce::dontSendNotification);
+    harmony_hint_.setText(kHarmonySources[harmony_index].hint, juce::dontSendNotification);
+    // Unbuilt is not the same as merely non-default, so it gets the fault colour rather
+    // than the quiet one.
+    harmony_hint_.setColour(juce::Label::textColourId,
+                            song.harmonySource == core::HarmonySource::GuitarExperimental
+                                ? kFault
+                                : kDim);
+    updateSongMapVisibility();
+
     section_list_.updateContent();
     section_list_.repaint();
 
@@ -307,6 +404,34 @@ void SongEditorView::refresh() {
     refreshSectionFields();
 }
 
+void SongEditorView::updateSongMapVisibility() {
+    // Hidden rather than disabled. A greyed-out chord field on a song that does not read
+    // charts is clutter the performer has to reason about every time the screen opens, and
+    // the layout reclaims the space when it is not needed.
+    const bool song_map = editor_.song().harmonySource == core::HarmonySource::SongMap;
+    for (juce::Component* c : {static_cast<juce::Component*>(&chords_label_),
+                               static_cast<juce::Component*>(&chords_editor_),
+                               static_cast<juce::Component*>(&chords_hint_),
+                               static_cast<juce::Component*>(&tempo_label_),
+                               static_cast<juce::Component*>(&tempo_editor_),
+                               static_cast<juce::Component*>(&tempo_hint_)}) {
+        c->setVisible(song_map);
+    }
+    resized();
+}
+
+std::vector<std::string> SongEditorView::splitChordText(const juce::String& text) {
+    std::vector<std::string> chords;
+    // Whitespace-separated, empties dropped. Nothing else is normalised — the performer's
+    // own spelling has to survive the round trip through the file, and "correcting" it
+    // here would mean the chart they read back is not the chart they typed.
+    for (const auto& token : juce::StringArray::fromTokens(text, " \t\r\n", {})) {
+        const auto trimmed = token.trim();
+        if (trimmed.isNotEmpty()) chords.push_back(trimmed.toStdString());
+    }
+    return chords;
+}
+
 void SongEditorView::refreshSectionFields() {
     const juce::ScopedValueSetter<bool> guard(updating_, true);
 
@@ -319,13 +444,65 @@ void SongEditorView::refreshSectionFields() {
     intensity_slider_.setEnabled(enabled);
     ai_enabled_toggle_.setEnabled(enabled);
     transition_combo_.setEnabled(enabled);
+    chords_editor_.setEnabled(enabled);
+    tempo_editor_.setEnabled(enabled);
 
     if (section == nullptr) {
         section_heading_.setText("SECTION", juce::dontSendNotification);
         name_editor_.setText({}, juce::dontSendNotification);
         prompt_editor_.setText({}, juce::dontSendNotification);
+        chords_editor_.setText({}, juce::dontSendNotification);
+        tempo_editor_.setText({}, juce::dontSendNotification);
+        chords_hint_.setText({}, juce::dontSendNotification);
+        tempo_hint_.setText({}, juce::dontSendNotification);
         return;
     }
+
+    // --- Song Map fields ---------------------------------------------------------------
+    juce::String chord_text;
+    for (const auto& chord : section->chordProgression) {
+        if (chord_text.isNotEmpty()) chord_text += "  ";
+        chord_text += juce::String(chord);
+    }
+    if (chords_editor_.getText() != chord_text) {
+        chords_editor_.setText(chord_text, juce::dontSendNotification);
+    }
+
+    // Which symbols are unreadable, by position. "chord 3 is unreadable" is actionable in
+    // a way that "invalid progression" is not, which is why ChordParser reports indices.
+    const auto bad = core::unparsableChordIndices(section->chordProgression);
+    if (bad.empty()) {
+        const int count = static_cast<int>(section->chordProgression.size());
+        chords_hint_.setColour(juce::Label::textColourId, kDim);
+        chords_hint_.setText(count == 0
+                                 ? juce::String("No chords yet. Song Map needs at least one.")
+                                 : juce::String(count) + " chord(s), all readable.",
+                             juce::dontSendNotification);
+    } else {
+        juce::String positions;
+        for (int i : bad) {
+            if (positions.isNotEmpty()) positions += ", ";
+            positions += juce::String(i + 1);
+        }
+        chords_hint_.setColour(juce::Label::textColourId, kFault);
+        // Says what will happen, not just that something is wrong: an unreadable chord is
+        // skipped and the band holds, which is a specific audible outcome.
+        chords_hint_.setText("Cannot read chord " + positions
+                                 + " - the band will hold through it.",
+                             juce::dontSendNotification);
+    }
+
+    const juce::String tempo_text = section->tempoBpm.has_value()
+                                        ? juce::String(*section->tempoBpm, 0)
+                                        : juce::String();
+    if (tempo_editor_.getText() != tempo_text) {
+        tempo_editor_.setText(tempo_text, juce::dontSendNotification);
+    }
+    tempo_hint_.setColour(juce::Label::textColourId, kDim);
+    tempo_hint_.setText(section->tempoBpm.has_value()
+                            ? "Chords advance on their own, one per bar."
+                            : "No tempo: chords wait for a NEXT CHORD footswitch. 20-300 BPM.",
+                        juce::dontSendNotification);
 
     section_heading_.setText("SECTION " + juce::String(index + 1) + " OF "
                                  + juce::String(editor_.sectionCount()),
@@ -374,6 +551,22 @@ void SongEditorView::commitPendingEdits() {
     const int index = selectedSection();
     const auto* section = editor_.sectionAt(index);
     if (section == nullptr) return;
+
+    // TEMPO commits on Enter or focus loss for the same reason NAME does — a partially
+    // typed "12" would otherwise be refused as out of range on the way to "120". So it
+    // needs the same flush before any read of the model, or SAVE would write the old
+    // tempo. This is the third control to need it; the rule really is about reads.
+    const auto typed_tempo = tempo_editor_.getText().trim();
+    const juce::String held_tempo = section->tempoBpm.has_value()
+                                        ? juce::String(*section->tempoBpm, 0)
+                                        : juce::String();
+    if (typed_tempo != held_tempo) {
+        if (typed_tempo.isEmpty()) {
+            editor_.setSectionTempoBpm(index, std::nullopt);
+        } else {
+            editor_.setSectionTempoBpm(index, typed_tempo.getDoubleValue());
+        }
+    }
 
     const auto typed = name_editor_.getText().toStdString();
     if (typed == section->name) return;
@@ -453,6 +646,13 @@ void SongEditorView::resized() {
     default_prompt_editor_.setBounds(prompt_row);
     area.removeFromTop(6);
 
+    auto harmony_row = area.removeFromTop(26);
+    harmony_label_.setBounds(harmony_row.removeFromLeft(110));
+    harmony_combo_.setBounds(harmony_row.removeFromLeft(260));
+    harmony_row.removeFromLeft(12);
+    harmony_hint_.setBounds(harmony_row);
+    area.removeFromTop(6);
+
     slots_label_.setBounds(area.removeFromTop(20));
     validation_label_.setBounds(area.removeFromTop(20));
     area.removeFromTop(8);
@@ -506,6 +706,22 @@ void SongEditorView::resized() {
     auto transition_row = right.removeFromTop(26);
     transition_label_.setBounds(transition_row.removeFromLeft(120));
     transition_combo_.setBounds(transition_row.removeFromLeft(220));
+
+    // Song Map fields, only when the song reads a chart. Laid out unconditionally — the
+    // controls are hidden rather than unbounded, because a hidden control with stale
+    // bounds is the shape of bug that put the BAND toggle off-screen once already
+    // (KNOWN_ISSUES.md §21), and giving them real bounds costs nothing.
+    right.removeFromTop(10);
+    chords_label_.setBounds(right.removeFromTop(18));
+    chords_editor_.setBounds(right.removeFromTop(28));
+    chords_hint_.setBounds(right.removeFromTop(20));
+
+    right.removeFromTop(8);
+    auto tempo_row = right.removeFromTop(26);
+    tempo_label_.setBounds(tempo_row.removeFromLeft(120));
+    tempo_editor_.setBounds(tempo_row.removeFromLeft(100));
+    tempo_row.removeFromLeft(12);
+    tempo_hint_.setBounds(tempo_row);
 }
 
 } // namespace ghostband::app

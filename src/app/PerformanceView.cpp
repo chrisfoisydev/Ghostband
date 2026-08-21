@@ -236,6 +236,40 @@ void PerformanceView::drawFollowingRow(juce::Graphics& g, juce::Rectangle<int> a
     //
     // The design also shows "STRONG SIGNAL" beside this. That is guitar-follow confidence,
     // which does not exist (Phase 3), so it is deliberately absent rather than faked.
+    // Song Map shows the chart's own symbol rather than a name derived from the notes.
+    // Those can differ — nameChord reads {G,B,D} as "G major" where the chart says "G" —
+    // and on stage the useful thing is the symbol the performer wrote, matched against the
+    // page in front of them.
+    if (engine_.songMapActive()) {
+        const auto& map = engine_.songMap();
+
+        g.setColour(kStageDim);
+        g.setFont(labelFont(12.0f));
+        auto header = area.removeFromTop(24);
+        g.drawText("CHART", header.removeFromLeft(200), juce::Justification::centredLeft);
+        // Manual mode says so, because "why isn't it moving" is the first question a
+        // performer will ask of a chart that is waiting for their foot.
+        g.drawText(map.advanceMode() == core::SongMapAdvance::Manual
+                       ? juce::String("FOOTSWITCH")
+                       : juce::String("NEXT: ") + juce::String(map.nextSymbol()),
+                   header, juce::Justification::centredRight);
+
+        const bool unreadable = map.currentNotes().empty();
+        g.setColour(unreadable ? kStageFault : kStageText);
+        g.setFont(stageFont(38.0f));
+        g.drawText(juce::String(map.currentSymbol()), area,
+                   juce::Justification::centredLeft);
+
+        if (unreadable) {
+            // The band is holding the previous chord here. Saying so beats leaving the
+            // performer to wonder why the symbol on screen is not what they hear.
+            g.setColour(kStageFault);
+            g.setFont(labelFont(12.0f));
+            g.drawText("UNREADABLE - HOLDING", area, juce::Justification::centredRight);
+        }
+        return;
+    }
+
     const auto sounding = engine_.harmony().soundingNotes();
     const juce::String chord(core::nameChord(sounding));
 

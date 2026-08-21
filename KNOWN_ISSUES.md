@@ -1004,3 +1004,44 @@ cmake --build build-asan -j
 
 **Still unverified for setlists:** the round trip. Building a set works; saving one, quitting,
 relaunching and reopening it has never been done against a real file.
+
+---
+
+## §29 — Song Map is complete but has never generated a note
+
+**Status:** written 2026-08-20, core tested (602 checks across four new suites), **app layer
+not compiled and never run**. Impact: unknown until a chart is played.
+
+The chain is: `ChordParser` reads typed symbols, `SongMapPlayer` walks a section's
+progression, `SoundingChord` turns a chord change into the smallest set of note-offs and
+note-ons, and `GhostBandAudioEngine` pushes those to MRT2. The Song Editor now selects the
+harmony source and edits chords and tempo; the stage screen shows the chart.
+
+**What is tested:** everything above `GhostBandAudioEngine`. Parsing, refusal, the quality
+table's ordering, the clock, manual advance, re-phasing, rejected symbols holding their
+slot, the note diff keeping common tones.
+
+**What is not tested, and cannot be off-Mac:** every line that touches MRT2 or JUCE. In
+particular:
+
+- whether MRT2 responds musically to chords pushed as note-on/note-off at all. The whole
+  design assumes chart chords can use the same path live MIDI does, which is true of the
+  API and unproven of the *music*.
+- whether one chord per bar at the section tempo is the right default. It is the most
+  common case in the kind of song this app is for, and it is a guess.
+- whether `beatsPerChord` being fixed at 4 is a blocker in practice. A chart where chords
+  last two bars cannot be expressed. Persistence has the migration machinery for a schema
+  field; it was left out deliberately rather than guessed at.
+
+**The judgement call most worth revisiting after hearing it:** a symbol that does not parse
+holds its slot and yields no notes, so the band keeps playing the previous chord. The
+alternative — dropping the slot — shifts every later chord earlier and puts the section out
+of step with the chart the singer is reading. One held chord looked like the smaller
+failure. That reasoning is about a page of music, not about a sound, and hearing it may
+change the answer.
+
+**How to test it:** SONGS → set HARMONY to *Song Map* → give a section chords (`G D Em C`)
+and no tempo → APPLY TO BAND → PERFORM. The chart should show `G` and `FOOTSWITCH`, and
+should not move until NEXT CHORD is fired. Then set a tempo of 100 and confirm it advances
+one chord per bar. Then type a deliberate typo (`Emm`) and confirm the editor names its
+position, the stage screen shows it red as `UNREADABLE - HOLDING`, and the band holds.

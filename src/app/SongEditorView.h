@@ -12,6 +12,8 @@
 
 #include <functional>
 #include <memory>
+#include <string>
+#include <vector>
 
 namespace ghostband::app {
 
@@ -61,6 +63,13 @@ private:
     /// *reads* the model has to flush first.
     void commitPendingEdits();
     void refreshSectionFields();
+    /// Show or hide the Song Map fields. They are hidden rather than disabled in MIDI mode:
+    /// a greyed-out chord field on a song that does not read charts is clutter that has to
+    /// be reasoned about every time the screen is opened.
+    void updateSongMapVisibility();
+    /// Split the chords field on whitespace. Empty entries are dropped; nothing else is
+    /// normalised, so the performer's own spelling survives the round trip.
+    static std::vector<std::string> splitChordText(const juce::String& text);
     int selectedSection() const;
     void applyToBand();
     void saveToDisk();
@@ -75,6 +84,15 @@ private:
     juce::TextEditor title_editor_;
     juce::Label default_prompt_label_;
     juce::TextEditor default_prompt_editor_;
+
+    /// Where the band's harmony comes from. Song-level, because a song that switches
+    /// between reading a chart and following the keyboard mid-performance would be two
+    /// songs wearing one name.
+    juce::Label harmony_label_;
+    juce::ComboBox harmony_combo_;
+    /// What the current choice actually means, in a sentence. Guitar Follow is unbuilt and
+    /// says so here rather than being silently selectable.
+    juce::Label harmony_hint_;
 
     juce::ListBox section_list_;
     juce::TextButton add_button_{"ADD"};
@@ -94,6 +112,20 @@ private:
     juce::ToggleButton ai_enabled_toggle_{"BAND PLAYS IN THIS SECTION"};
     juce::Label transition_label_;
     juce::ComboBox transition_combo_;
+
+    /// Song Map only. Space-separated chord symbols, e.g. "G D Em C".
+    juce::Label chords_label_;
+    juce::TextEditor chords_editor_;
+    /// Names the symbols that could not be read, by position — `ChordParser` reports which
+    /// ones, and "chord 3 is unreadable" is actionable in a way that "invalid progression"
+    /// is not.
+    juce::Label chords_hint_;
+
+    /// Song Map only. Empty means no tempo, which is a musical choice and not a missing
+    /// value: it puts the chart into Manual, advancing only on a footswitch.
+    juce::Label tempo_label_;
+    juce::TextEditor tempo_editor_;
+    juce::Label tempo_hint_;
 
     juce::Label validation_label_;
     juce::Label slots_label_;
