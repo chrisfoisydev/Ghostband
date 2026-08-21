@@ -920,8 +920,8 @@ already reports it — it just has not been read while the big model was loaded.
 
 ## §28 — Adding the first song to a setlist crashed the app
 
-**Status:** fixed 2026-08-20, **fix not yet compiled**. Found on hardware within minutes of
-the setlist screen existing.
+**Status:** fixed and **verified on hardware 2026-08-20** — adding a song to an empty set no
+longer crashes. Found on hardware within minutes of the setlist screen existing.
 
 `SetlistView::refresh()` raised a re-entrancy guard it never read:
 
@@ -957,5 +957,9 @@ key — invisible at a desk with three songs, and a stutter at a gig with forty.
 changes now run `refreshSelectionUi()`, which touches no filesystem.
 
 **Not covered by a test.** This is a JUCE-callback re-entrancy bug and `ghostband_core` has
-no ListBox; it cannot be reproduced off-Mac. The regression test is manual: open SETLISTS
-with an empty set and add a song.
+no ListBox; it cannot be reproduced off-Mac. The regression check is manual and is now in
+the pre-gig list: open SETLISTS with an empty set and add a song.
+
+**Still unverified for setlists:** the round trip. Building a set works; saving one, quitting,
+relaunching and reopening it has never been done against a real file. That is the check that
+caught §25 for songs, and the equivalent has not been run here.
