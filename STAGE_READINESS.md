@@ -78,6 +78,8 @@ Not yet usable, kept here so it is written before it is needed.
 
 **Day before**
 - [ ] `mrt models init` / `download` complete; `mrt2_small` present
+- [ ] MODEL row reads **Performance** and is green. `High Quality` on an M2 Pro is a
+      rehearsal model — if the row is red, the wrong model is loaded for a gig
 - [ ] 60-minute soak passed on *this* laptop, on battery and on mains
 - [ ] Diagnostics: 0 underruns, `total_ms` < 30 ms against the 40 ms frame budget
 - [ ] Setlist loaded, every song opened once, every section triggered once

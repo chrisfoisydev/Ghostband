@@ -900,10 +900,21 @@ machine, and the model does work for what a rehearsal needs.
    downloaded this" and "this does not exist" are different facts, and hiding the second
    makes the first look like a missing feature.
 
-**What has NOT been tested:** selecting `mrt2_base` at all. It is not on disk here, so the
-disabled-item path, the confirmation, and the red `TOO SLOW HERE` status in the MODEL rig
-row have only ever been reasoned about. Downloading it (`mrt models download mrt2_base`,
-several GB) and choosing it is the test.
+**Verified on hardware 2026-08-20**, with `mrt2_base` downloaded onto the M2 Pro. All five
+branches ran as intended: the entry is disabled while the model is absent and enabled once
+it is present; selecting it labels the machine and the consequence; `LOAD MODEL` becomes
+`LOAD ANYWAY?` and ignores the first press; the MODEL rig row stays red rather than green
+after loading; and changing the selection mid-confirmation cancels the arming.
+
+That last one was the branch most likely to be wrong — it is the only state in the selector
+that spans two clicks — and it is the reason `model_combo_.onChange` resets
+`confirming_slow_model_` rather than leaving the button armed for whatever is selected next.
+
+**Still not established:** how badly `mrt2_base` actually underruns on this machine. The
+gate is built on upstream's table, not on a measurement taken here. A frame-time figure for
+`mrt2_base` on an M2 Pro would turn "upstream says ❌" into "it takes N ms against a 40 ms
+budget", which is a better thing to put in front of a performer. `EngineMetrics::total_ms`
+already reports it — it just has not been read while the big model was loaded.
 
 ---
 
