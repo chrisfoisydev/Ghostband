@@ -95,6 +95,7 @@ add_library(ghostband_core STATIC
     src/core/DeviceRecovery.cpp
     src/core/ModelCatalog.cpp
     src/core/ChordParser.cpp
+    src/core/SongMapPlayer.cpp
     src/core/SetlistEditor.cpp
 )
 add_library(ghostband::core ALIAS ghostband_core)

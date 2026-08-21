@@ -148,7 +148,7 @@ cmake --build build -j && ctest --test-dir build --output-on-failure
 | 2.6 | MIDI foot controller + MIDI Learn + persistent mappings | 🟡 core done, **tested** (`MidiMappingSet`, 33 tests); engine wiring + `FootControlPanel` + mapping file **compile and launch**, runtime behaviour unverified — see `KNOWN_ISSUES.md` §15 |
 | 2.7 | Setlists | 🟡 core done, **tested** (`Setlist`, `SetlistController`, 22 tests; `SetlistEditor`, 22 tests). A setlist **screen** now exists so a set can be built, reordered and saved in-app rather than by hand-writing a file. Screen **runs on hardware 2026-08-20**; adding a song crashed on first use, was misdiagnosed as recursion, and turned out to be a use-after-free — **fixed and verified** (`KNOWN_ISSUES.md` §28). **The save/quit/reopen round trip has still never been run against a real file** |
 | 2.8 | Versioned persistence with migrations | 🟡 core done, **tested** (`Persistence`, 45 tests) — schema version, newer-file refusal, migration dispatch, C-locale numbers. **Song round trip exercised on hardware 2026-08-20** (save → quit → relaunch → open). It failed first time — the editor discarded the edit before it reached the file (`KNOWN_ISSUES.md` §25). Setlist round trip still unexercised |
-| 2.9 | Song Map harmony mode | ❌ |
+| 2.9 | Song Map harmony mode | 🟡 core done, **tested** — `ChordParser` (475 checks) turns typed symbols into note numbers and refuses anything it does not fully understand; `SongMapPlayer` (106 checks) walks a section's progression. Engine and UI wiring not started |
 
 The prompt-slot pre-encoding strategy (`ARCHITECTURE.md` §8) is a Phase 2 prerequisite,
 not an optimisation — section changes are unusable without it. The mechanism is already
