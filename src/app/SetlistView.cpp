@@ -123,6 +123,17 @@ bool SetlistView::isMissing(int index) const {
 // --- Refresh -----------------------------------------------------------------------------
 
 void SetlistView::refresh() {
+    // **Refuse re-entry.** `updating_` was being set here and checked only by
+    // commitPendingEdits, which left the important path open: refresh() calls
+    // ListBox::updateContent(), updateContent() can move or clear the selection when the
+    // row count changes, moving the selection fires selectedRowsChanged, and
+    // selectedRowsChanged called straight back into refresh(). Adding the first song to an
+    // empty set is exactly the 0 -> 1 row-count change that moves the selection, so it
+    // recursed until the stack ran out. That was the crash.
+    //
+    // A ScopedValueSetter alone could not have prevented it — the guard has to be *read*
+    // on the way in, not merely raised on the way through.
+    if (updating_) return;
     const juce::ScopedValueSetter<bool> guard(updating_, true);
 
     // Re-read the directory: a song can be deleted while this screen is open, and a set
@@ -137,12 +148,7 @@ void SetlistView::refresh() {
     song_list_.updateContent();
     song_list_.repaint();
 
-    const int selected = song_list_.getSelectedRow();
-    const bool has_selection = selected >= 0 && selected < editor_.size();
-
-    remove_button_.setEnabled(has_selection);
-    up_button_.setEnabled(has_selection && selected > 0);
-    down_button_.setEnabled(has_selection && selected < editor_.size() - 1);
+    refreshSelectionUi();
     undo_button_.setEnabled(editor_.canUndo());
 
     // PERFORM SET and SAVE SET both need a set that can actually be performed. An empty
@@ -153,8 +159,6 @@ void SetlistView::refresh() {
     save_button_.setButtonText(editor_.isDirty() ? "SAVE SET *" : "SAVE SET");
 
     close_button_.setButtonText(confirming_discard_ ? "DISCARD CHANGES?" : "DONE");
-
-    refreshDetails();
     repaint();
 }
 
@@ -252,7 +256,26 @@ void SetlistView::paintListBoxItem(int row, juce::Graphics& g, int width, int he
     }
 }
 
-void SetlistView::selectedRowsChanged(int) { refresh(); }
+void SetlistView::selectedRowsChanged(int) {
+    // Deliberately not refresh(). Moving the selection changes which buttons apply and
+    // what the details panel shows; it does not change what is on disk, and a full
+    // refresh() re-read the songs directory on every arrow key. Scanning the filesystem
+    // once per keypress is the kind of thing that is invisible at a desk with three songs
+    // and audible at a gig with forty.
+    refreshSelectionUi();
+    repaint();
+}
+
+void SetlistView::refreshSelectionUi() {
+    const int selected = song_list_.getSelectedRow();
+    const bool has_selection = selected >= 0 && selected < editor_.size();
+
+    remove_button_.setEnabled(has_selection);
+    up_button_.setEnabled(has_selection && selected > 0);
+    down_button_.setEnabled(has_selection && selected < editor_.size() - 1);
+
+    refreshDetails();
+}
 
 // --- Actions -----------------------------------------------------------------------------
 

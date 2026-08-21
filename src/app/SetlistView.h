@@ -71,6 +71,11 @@ private:
     void selectedRowsChanged(int lastRowSelected) override;
 
     void refresh();
+    /// The part of refresh() that depends only on which row is selected: which buttons
+    /// apply, and what the details panel shows. Split out because a selection change must
+    /// not re-scan the songs directory, and because refresh() refuses re-entry — see the
+    /// comment on its definition.
+    void refreshSelectionUi();
     void refreshDetails();
 
     /// Flush the name field into the model before anything reads it. Same rule as the Song

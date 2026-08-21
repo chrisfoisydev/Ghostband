@@ -904,3 +904,47 @@ machine, and the model does work for what a rehearsal needs.
 disabled-item path, the confirmation, and the red `TOO SLOW HERE` status in the MODEL rig
 row have only ever been reasoned about. Downloading it (`mrt models download mrt2_base`,
 several GB) and choosing it is the test.
+
+---
+
+## §28 — Adding the first song to a setlist crashed the app
+
+**Status:** fixed 2026-08-20, **fix not yet compiled**. Found on hardware within minutes of
+the setlist screen existing.
+
+`SetlistView::refresh()` raised a re-entrancy guard it never read:
+
+```cpp
+void SetlistView::refresh() {
+    const juce::ScopedValueSetter<bool> guard(updating_, true);   // set, never checked
+```
+
+`updating_` was consulted by exactly one function, `commitPendingEdits`. That left the
+path that mattered wide open:
+
+`refresh()` → `ListBox::updateContent()` → row count changes → JUCE moves the selection →
+`selectedRowsChanged()` → `refresh()` → …
+
+Adding a song to an **empty** set is the 0 → 1 row-count change, which is precisely the
+transition that moves the selection. It recursed until the stack ran out.
+
+**Two things worth carrying forward:**
+
+1. **A `ScopedValueSetter` guard is only half a guard.** Raising a flag on the way through
+   does nothing unless something reads it on the way in. `if (updating_) return;` was the
+   entire fix.
+
+2. **The correct pattern was already in the repo, one file over.** `SongEditorView` has the
+   same ListBox-plus-fields shape and gets it right: `selectedRowsChanged` calls
+   `refreshSectionFields()`, a narrow function, rather than the full `refresh()`. Writing
+   `SetlistView` I reached for the general function instead of the specific one and did not
+   check how the neighbouring screen had solved the identical problem.
+
+**A second bug fixed alongside it, which was not a crash.** `selectedRowsChanged` calling
+`refresh()` also meant re-reading and re-parsing the entire songs directory on every arrow
+key — invisible at a desk with three songs, and a stutter at a gig with forty. Selection
+changes now run `refreshSelectionUi()`, which touches no filesystem.
+
+**Not covered by a test.** This is a JUCE-callback re-entrancy bug and `ghostband_core` has
+no ListBox; it cannot be reproduced off-Mac. The regression test is manual: open SETLISTS
+with an empty set and add a song.
